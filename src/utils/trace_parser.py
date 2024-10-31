@@ -1,5 +1,8 @@
 from enum import IntEnum
 from typing import Optional, Tuple
+import argparse
+import os
+from pathlib import Path
 from src.config.project_config import ROOT_DIR, DEFAULT_TRACE_FILE
 
 class CacheSimOperation(IntEnum):
@@ -29,11 +32,37 @@ class TraceFileParser:
         fd: File descriptor for the opened trace file
     """
     def __init__(self, filename: Optional[str] = None):
-        self.fd = None  # Add this line to initialize fd
+        """
+        Initialize the parser with an optional filename.
+        
+        Args:
+            filename (Optional[str]): Path to the trace file. If None, uses default.
+        """
+        self.fd = None
         if filename is None: 
-            self.filename = str(ROOT_DIR/DEFAULT_TRACE_FILE)
+            print(f"[INFO] - Using default file: {ROOT_DIR/DEFAULT_TRACE_FILE}")
+            self.filename = str(ROOT_DIR/DEFAULT_TRACE_FILE)    # Default as specified in project_config
         else: 
-            self.filename = filename
+            self.filename = self._validate_file_path(filename)
+    
+    @staticmethod
+    def _validate_file_path(filepath: str) -> str: 
+        """
+        Validate and normalize the provided file path.
+                    
+        Raises:
+            ValueError: If the file path is invalid or file doesn't exist
+
+        """
+        try: 
+            path = Path(filepath).resolve()     #Resolves symlinks and makes path absolute
+            if not path.is_file(): 
+                raise ValueError(f"File does not exist: {filepath}") 
+            return str(path)
+        except Exception as e:
+            raise ValueError(f"Invalid file path: {filepath}") from e
+
+
 
     def open(self) -> bool: 
         """Open the trace file""" 
@@ -42,6 +71,9 @@ class TraceFileParser:
             return True
         except FileNotFoundError:    
             print(f"[ERROR] - could not find trace file '{self.filename}'") 
+            return False
+        except PermissionError: 
+            print(f"[ERROR] - Permission denied accessing file: '{self.filename}'")
             return False
         except Exception as e: 
             print(f"[ERROR] - Opening file: {e}")
@@ -53,7 +85,7 @@ class TraceFileParser:
             try: 
                 self.fd.close()
             except Exception as e:
-                print(f"[ERROR] - Closing file: {e}") 
+                print(f"[ERROR] - Closing file: {str(e)}") 
 
     def read_line(self) -> Optional[Tuple[CacheSimOperation, Optional[int]]]: 
         """
@@ -108,13 +140,60 @@ class TraceFileParser:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager for exit"""
         self.close()
+"""
+    ----------------END OF TraceFileParser Class----------------------------------------------------
+    ------------------------------------------------------------------------------------------------
+"""
+
+
+
+def parse_arguments():
+    """
+    Parse command line arguments for the trace file parser.
+    
+    Returns:
+        argparse.Namespace: Parsed command line arguments
+    """
+    parser = argparse.ArgumentParser(
+        description="Cache Simulation Trace File Parser",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        '-f', '--file',
+        type=str,
+        help='Path to the trace file to process',
+        default=None
+    )
+    parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='Enable debug output'
+    )
+    return parser.parse_args()
+
+
+# Small test for parser
+def main():
+    """Main entry point for the trace file parser utility"""
+    args = parse_arguments()
+    try:
+        with TraceFileParser(args.file) as parser:
+            while True:
+                result = parser.read_line()
+                if result is None:
+                    break
+                op, addr = result
+                if args.debug:
+                    print("[DEBUG] -Line read...")
+                    print(f"Operation: {op.value }{op.name:20} Address: 0x{addr:08x}")
+    except ValueError as e:
+        print(f"[ERROR] - {str(e)}")
+        return 1
+    except Exception as e:
+        print(f"[ERROR] - An unexpected error occurred: {str(e)}")
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    """Test the trace file parser utility"""
-    with TraceFileParser() as parser:
-        while True:
-            result = parser.read_line()
-            if result is None:
-                break
-            op, addr = result
-            print(f"Operation: {op.name:20} Address: 0x{addr:08x}")
+    exit(main())

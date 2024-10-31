@@ -50,7 +50,11 @@ class CacheConfig:
         self.line_size = int(line_size)
         self.associativity = int(associativity)
         self.protocol = protocol
-
+"""
+    ------------------------------END OF CLASS----------------------------------
+    ----------------------------------------------------------------------------
+"""
+#--------------------------Small test for .env file usage-----------------------
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Cache Configuration')
     parser.add_argument('--capacity', type=int, help='Cache capacity in MB')
