@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    command: ["python", "main.py"]
+    env_file: ".env"
+  dev:
+    build: .
+    command: ["bash"]
+    tty: true
+    env_file: ".env"
+    volumes:
+      # Maps the current directory to /home/llcsim in the container
+      # NOTE: If the app has also been run locally, directories like
+      # __pycache__ will also map to the container with this volume.
+      # It may be necessary to remove those directories if conflicts
+      # or odd behavior arise.
+      - .:/home/llcsim
