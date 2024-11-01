@@ -1,0 +1,12 @@
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/.dockerignore
+**/.env
+**/.bash-history
+**/.git
+**/.gitignore
+**/docker-compose*
+**/compose*
+**/Dockerfile*
+README.md
