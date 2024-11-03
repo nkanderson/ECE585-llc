@@ -14,4 +14,4 @@ services:
       # __pycache__ will also map to the container with this volume.
       # It may be necessary to remove those directories if conflicts
       # or odd behavior arise.
-      - .:/home/llcsim
+      - ./src:/home/llcsim

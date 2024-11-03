@@ -18,6 +18,6 @@ RUN useradd --create-home llcsim
 WORKDIR /home/llcsim
 USER llcsim
 
-COPY . .
+COPY ./src .
 
 CMD [ "python", "main.py" ]
