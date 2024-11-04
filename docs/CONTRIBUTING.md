@@ -116,3 +116,9 @@ isort --check-only src/
 ```bash
 isort src/
 ```
+
+### Git pre-commit hook
+
+The pre-commit hook in `/scripts/hooks` will run on any invocation of `git commit`, and will prevent the commit from completing if any of the pre-commit checks fail. The script currently runs `black`, `isort`, and `flake8`, all in check-only modes to prevent files from being automatically modified. After addressing any issues, you can stage the updated files and retry the commit.
+
+To install the pre-commit hook, you can either run the installation script located at `scripts/install_git_hooks.py`, or manually copy the `pre-commit` script from `scripts/hooks` to your `.git/hooks` directory.

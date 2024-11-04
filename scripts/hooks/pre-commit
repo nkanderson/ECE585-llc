@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Define the directory to check (e.g., "src")
+CHECK_DIR="src"
+
+# Run Black in check-only mode
+echo "Running Black..."
+black --check $CHECK_DIR
+if [ $? -ne 0 ]; then
+    echo -e "\nBlack formatting issues found. Run 'black $CHECK_DIR' to fix."
+    exit 1
+fi
+
+# Run isort in check-only mode
+echo "Running isort..."
+isort --check-only $CHECK_DIR
+if [ $? -ne 0 ]; then
+    echo -e "\nisort import ordering issues found. Run 'isort $CHECK_DIR' to fix."
+    exit 1
+fi
+
+# Run Flake8 for linting
+echo "Running Flake8..."
+flake8 $CHECK_DIR
+if [ $? -ne 0 ]; then
+    echo -e "\nFlake8 linting issues found. Review the output above for details."
+    exit 1
+fi
+
+echo "All checks passed!"
+exit 0

@@ -2,3 +2,6 @@ cache-venv/
 __pycache__/
 *.pyc
 **/.bash_history
+
+# Ignore editor-specific settings
+.vscode/
