@@ -4,7 +4,7 @@ This module provides a configuration class for a cache memory system, with
 parameters set via environment variables or command line arguments.
 All configuration must be specified in .env file or via command line.
 
-Command Line Usage: 
+Command Line Usage:
     python cache_config.py --capacity 64 --line-size 64 --associativity 4 --protocol MESI
 
 Required Environment Variables:

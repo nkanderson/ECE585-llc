@@ -1,6 +1,4 @@
 import argparse
-import os
-from enum import IntEnum
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -97,7 +95,7 @@ class TraceFileParser:
         line = self.fd.readline()
         if not line:  # EOF, detects if line == ""
             self.close()
-            print(f"[INFO] : Trace Read Complete")
+            print("[INFO] : Trace Read Complete")
             return None
 
         # Strip leading and trailing whitespace, and remove newline character
@@ -111,7 +109,7 @@ class TraceFileParser:
             parts = line.split()
             if len(parts) < 2:
                 print(
-                    f"[WARNING] : Invalid line read from trace, recursing to next line"
+                    "[WARNING] : Invalid line read from trace, recursing to next line"
                 )
                 return self.read_line()
 
@@ -121,7 +119,7 @@ class TraceFileParser:
             )  # Convert string to integer using base 16 (i.e. hex)
             return op, addr
 
-        except ValueError as e:
+        except ValueError:
             print(f"[WARNING] : Invalid line format : {line.strip()}")
             return self.read_line()
         except Exception as e:
@@ -177,7 +175,7 @@ def main():
                 op, addr = result
                 if args.debug:
                     print("[DEBUG] -Line read...")
-                    print(f"Operation: {op.value }{op.name:20} Address: 0x{addr:08x}")
+                    print(f"Operation: {op.value} {op.name:20} Address: 0x{addr:08x}")
     except ValueError as e:
         print(f"[ERROR] - {str(e)}")
         return 1
