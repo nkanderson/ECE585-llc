@@ -1,16 +1,19 @@
 # Test Plan
 "Slow is smooth and smooth is fast"
-
-## Table of Contents
-1. [Unit testing](Unit-Testing)
-   1. [What is Unit Testing?](What-is-Unit-Testing?)
-   2. [Steps for unit testing](Steps-for-unit-testing)
-      1. [0. Testing Framework](0.-Testing-Framework)
-      2. [1. Test Cases, Test Suites and Testable Units]
-2. [Functional Testing](Functional-Testing)
-3. [CI/CD](CI/CD)
-4. [Edge Cases](Edge-Cases)
-    * Make sure to have example code
+# Table of Contents
+- [Test Plan](#test-plan)
+- [Table of Contents](#table-of-contents)
+- [Unit Testing](#unit-testing)
+  - [What is Unit Testing?](#what-is-unit-testing)
+  - [Steps for unit testing](#steps-for-unit-testing)
+    - [0. Testing Framework](#0-testing-framework)
+    - [1. Test Cases, Test Suites and Testable Units](#1-test-cases-test-suites-and-testable-units)
+    - [2. Writing a Unit Test](#2-writing-a-unit-test)
+      - [Note on functions that do not return a value](#note-on-functions-that-do-not-return-a-value)
+      - [Note on naming convention](#note-on-naming-convention)
+- [Functional Testing](#functional-testing)
+- [CI/CD](#cicd)
+- [Edge Cases](#edge-cases)
 
 # Unit Testing
 ## What is Unit Testing? 
@@ -23,7 +26,7 @@ that your code works?"
 ## Steps for unit testing
 ### 0. Testing Framework
 Most commonly used programming languages have unit testing frameworks. C++ has 
-gtest (among others, but gtest is most commonly used for C++), python has a 
+gtest (among others, but gtest is most commonly used for C++), Python has a 
 built-in unit testing framework, Java has JUnit, etc. For our project we will 
 use the built-in python unit testing framework [unittest](https://docs.python.org/3/library/unittest.html).
 
@@ -36,7 +39,7 @@ attempts to do everything).
 
 ### 2. Writing a Unit Test
 Unit tests can be split up into 3 parts: setup, verification, and teardown.
-1. Setup is where you instantiate objects and variables used in the test
+1. Setup is where you instantiate objects and variables used in the test.
 2. Verification is where you run your UUT (unit under test) and evaluate the 
 output using an assert.
 3. Teardown is only needed if you need to clean up after your test such as
@@ -114,7 +117,12 @@ class traceFileParser_Open(unittest.TestCase)
         self.assertFalse(parser.open("bad_filename"))
 
     def test_FileNotFoundError
+        parser = TraceFileParser()
+        self.assertFalse(parser.open("file_with_bad_permissions))
 
+    def test_FileNotFoundError
+        parser = TraceFileParser()
+        self.assertFalse(parser.open("file_with_exception"))
 ```
 
 Note, this would be a good function to refactor for returning the error instead
@@ -139,12 +147,12 @@ Functional testing involves testing the entire application itself, simulating a
 user. This can be done a few ways: manual testing, automated behavioral testing, 
 or scripted testing. Manual testing is usually employed for code that has a GUI
 or a linkage with a physical interface (such as physical buttons or knobs). 
-Automated behavioral testing could be employed, but will require the 
-implementation of a Gherkin parser (a non trivial task), which will
-result in scope creep. Scripted testing would be the easiest method of 
-functional testing. This would require the implementation of a test framework
-(which will also be unit tested) to run the simulation, parse the output from 
-the command line, and verify the output based on expected behavior. 
+Automated behavioral testing could be employed for our application, but will 
+require the implementation of a Gherkin parser (a non trivial task), which will
+result in scope creep. Scripted testing would be the most straight forward 
+method of functional testing. This would require the implementation of a test 
+framework(which will also be unit tested) to run the simulation, parse the 
+output from the shell, and verify the output based on expected behavior. 
 
 # CI/CD
 Github has recently added a workflow automation feature called github actions. 
@@ -160,5 +168,5 @@ difficult to consider all edge cases when dealing with a complex software
 system. Instead there are paradigms and practices to employ when writing tests 
 to attempt to catch important edge case bugs. These paradigms and practices are:
 * Invalid inputs, does your program crash when you send in random garbage?
-* boundary value testing, what happens when you exceed boundaries?
-* 
+* Boundary value testing, what happens when you exceed boundaries?
+* regression testing, have previously fixed bugs been introduced?
