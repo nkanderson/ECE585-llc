@@ -2,7 +2,7 @@
 Constnt definitions for the LLC simulator.
 Includes operation types, results, and logging levels.
 """
-from enum import IntEnum, auto
+from enum import IntEnum
 
 class BusOp(IntEnum):
     """Bus Operation types as defined in project specs"""
