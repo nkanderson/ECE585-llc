@@ -1,10 +1,11 @@
-from enum import IntEnum
-from typing import Optional, Tuple
 import argparse
 import os
+from enum import IntEnum
 from pathlib import Path
-from config.project_config import ROOT_DIR, DEFAULT_TRACE_FILE
+from typing import Optional, Tuple
+
 from common.constants import TraceCommand
+from config.project_config import DATA_DIRECTORY, DEFAULT_TRACE_FILE, ROOT_DIR
 
 
 class TraceFileParser:

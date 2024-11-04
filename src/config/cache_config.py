@@ -14,9 +14,10 @@ Required Environment Variables:
     CACHE_PROTOCOL: Cache coherence protocol (MESI/MSI)
 """
 
-from dotenv import load_dotenv
-import os
 import argparse
+import os
+
+from dotenv import load_dotenv
 
 
 class CacheConfig:
