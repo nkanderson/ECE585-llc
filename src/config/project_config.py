@@ -8,6 +8,7 @@ This module contains global configuration settings and constants for the LLC Cac
 
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).parents[2]
+ROOT_DIR = Path(__file__).parents[1]
 
+DATA_DIRECTORY = "data"
 DEFAULT_TRACE_FILE = "trace.txt" 
