@@ -1,11 +1,19 @@
 """
-Logger Utility
-    Statistics: responsible for data storage and basic calculations
-    CacheLogger: responsible for logging operations and updating statistics
-"""
+CacheLogging utility which handles simulated events and logs them based on each operation. 
+
+Classes:
+    Statistics: Data class for storing and calculating cache usage metrics
+    CacheLogger: Handles hierarchical logging with configurable levels (SILENT/NORMAL/DEBUG)
+
+Functions:
+    log_operation: Decorator that wraps cache operations with logging functionality, preserving
+                  original behavior while adding contextual logging based on operation type
+""" 
+
 from dataclasses import dataclass
 from functools import wraps
 from typing import Callable
+from src.common.constants import LogLevel, SnoopResult, BusOp, CacheMessage
 
 @dataclass
 class Statistics:
@@ -66,113 +74,126 @@ class Statistics:
         print(stats)
 
 class CacheLogger(Statistics):
-    """
-    Custom logging system with three simple modes:
-        1. silent  - Only show statistics and command 9 responses
-        2. normal  - Show operations and stats
-        3. debug   - Show everything including entry/exit of functions
-    """
-    def __init__(self, mode: str = 'normal'):
+    """Hierarchical logging system with statistics tracking"""
+    def __init__(self, level: LogLevel = LogLevel.NORMAL):
         super().__init__()
-        if mode not in ['silent', 'normal', 'debug']:
-            raise ValueError(f"Invalid mode: {mode}. Must be 'silent', 'normal', or 'debug'")
-        self.mode = mode
+        self.level = level
 
-    def debug(self, message: str):
-        """Print debug messages only in debug mode"""
-        if self.mode == 'debug':
-            print(f"DEBUG: {message}")
+    def log(self, level: LogLevel, message: str):
+        # Log message if level is sufficient
+        if self.level >= level: 
+            print(f"{level} : {message}") 
 
-    def log(self, message: str):
-        """Print operational messages in normal and debug modes"""
-        if self.mode in ['normal', 'debug']:
-            print(message)
-
-    def force_log(self, message: str):
-        """Print messages that should always show (stats and command 9)"""
-        print(message)
-
-    def record_read(self): 
-        self.cache_reads += 1
-        
-    def record_write(self): 
-        self.cache_writes += 1
-
-    def record_hit(self): 
-        self.cache_hits += 1
-
-    def record_miss(self): 
-        self.cache_misses += 1
+    #Statistics recording methods
+    def record_read(self): self.cache_reads += 1
+    def record_write(self): self.cache_writes += 1
+    def record_hit(self): self.cache_hits += 1
+    def record_miss(self): self.cache_misses += 1
 
 
-def log_operation(logger: CacheLogger):
+def log_operation(logger: CacheLogger):i
     """
-    Generic decorator for logging cache operations with configurable logging levels.
+    A decorator factory that creates function decorators for cache operation logging.
     
-    This decorator wraps cache operation functions to provide:
-        1. Debug level entry/exit logging
-        2. Normal level operation logging with formatted output
-        3. Automatic statistic tracking
-    
-    How it works:
+    This decorator implements a hierarchical logging system with configurable levels
+    through the CacheLogger class. It uses closure to maintain logger state and
+    wraps cache operations to add logging functionality without modifying their
+    implementation.
+
+    Logging Levels:
+        1. Silent: Only outputs:
+           - Summary statistics of cache usage
+           - Responses to command 9 in trace files
+        
+        2. Normal (default): Outputs all Silent level items plus:
+           - Bus operations
+           - Snoop results
+           - L2 to L1 cache communication messages
+        
+        3. Debug: Outputs all Normal level items plus:
+           - Function entry/exit traces
+           - Detailed argument logging
+           - Return value logging
+
+    Usage Example:
+        ```python
         @log_operation(logger=cache_logger)
         def BusOperation(self, BusOp: int, Address: int, SnoopResult: int):
+            # Function implementation
             pass
-            
-        # When this code runs:
+
+        # When called:
         simulator.BusOperation(BusOp.READ, 0x1234, NOHIT)
-        
-        # Here's he complete flow:
-        # 1. Python sees @log_operation(logger=cache_logger) and calls log_operation
-        # 2. log_operation returns the decorator function
-        # 3. decorator wraps the original BusOperation and returns wrapper
-        # 4. When BusOperation is called, wrapper actually executes:
-        #    a. args captures (self, BusOp.READ, 0x1234, NOHIT)
-        #    b. kwargs is empty {}
-        #    c. func.__name__ gets "BusOperation" for logging
-        #    d. Logger prints debug entry message
-        #    e. Original BusOperation executes and returns value (e.g., True)
-        #    f. result captures the return value from BusOperation
-        #    g. Logger prints operation message
-        #    h. Logger prints debug exit message with result
-        #    i. wrapper returns result back through the chain to the caller
-        # 5. Final result is available in the caller's scopet
-    
+        # Will log based on logger's mode
+        ```
+
+    Implementation Flow:
+        1. log_operation(logger): Creates closure with CacheLogger instance
+        2. decorator(func): Takes the function to be decorated
+        3. wrapper(*args, **kwargs): Handles the actual function call with logging
+
     Args:
-        logger (CacheLogger): Instance of CacheLogger to use for logging operations
+        logger (CacheLogger): Logger instance that determines logging behavior
+                            and maintains statistics
 
     Returns:
-        The decorator has multiple levels of returns:
-        1. log_operation returns the decorator function
-        2. decorator returns the wrapper function
-        3. wrapper returns the result of the original function
-    Note:
-        The decorator preserves the original function's metadata through @wraps
-        and provides different output based on the logger's mode (silent/normal/debug)
+        Callable: A decorator function that will wrap the target function with
+                 logging functionality
+
+    Return Flow:
+        1. log_operation returns: decorator function
+        2. decorator returns: wrapper function
+        3. wrapper returns: original function's result
+
+    Technical Notes:
+        - Uses @wraps from functools to preserve original function metadata
+        - Accessing original function name via func.__name__ for logging
+        - Args[1:] in debug logging skips 'self' parameter for cleaner output
+        - Supports different output formats based on operation type
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             # Get operation name from the function name
-            op_name = func.__name__
+            op_name = func.__name__ 
+
             
-            # Debug level: entry logging
-            logger.debug(f"Entering {op_name} with args={args[1:]} kwargs={kwargs}")
+            #Debug level logging
+            logger.log(LogLevel.DEBUG, f"Entering {op_name} with args={args[1:]} kwargs={kwargs}")
             
-            # Execute the operation
+            #Execute operation
             result = func(*args, **kwargs)
             
-            # Normal level: operation logging
-            # Format the output based on operation type
-            if op_name == "BusOperation":
-                logger.log(f"BusOp: {args[1]}, Address: {args[2]:x}, Snoop Result: {args[3]}")
-            elif op_name == "PutSnoopResult":
-                logger.log(f"SnoopResult: Address {args[1]:x}, SnoopResult: {args[2]}")
-            elif op_name == "MessageToCache":
-                logger.log(f"L2: {args[1]} {args[2]:x}")
-            
+             match op_name:
+                case "BusOperation":
+                    # BusOp arg[1], Address arg[2], SnoopResult arg[3]
+                    logger.log(LogLevel.NORMAL, 
+                        f"BusOp: {BusOp(args[1]).name}, Address: {args[2]:x}, "
+                        f"Snoop Result: {SnoopResult(args[3]).name}")
+                
+                case "GetSnoopResult":
+                    # Address arg[1]
+                    logger.log(LogLevel.NORMAL, 
+                            f"GetSnoopResult: Address {args[1]:xi}, "
+                            f"Snoop Result: {SnoopResult(result.name}")
+                
+                case "PutSnoopResult":
+                    # Address arg[1], SnoopResult arg[2]
+                    logger.log(LogLevel.NORMAL, 
+                        f"SnoopResult: Address {args[1]:x}, "
+                        f"SnoopResult: {SnoopResult(args[2]).name}")
+                
+                case "MessageToCache":
+                     # Message arg[1], Address arg[2]
+                    logger.log(LogLevel.NORMAL, 
+                        f"L2: {CacheMessage(args[1]).name} {args[2]:x}")
+                
+                case _:  # Default case
+                    pass
+
+                                   
             # Debug level: exit logging
-            logger.debug(f"Exiting {op_name} with result: {result}")
+            logger.log(LogLevel.DEBUG, f"Exiting {op_name} with result: {result}")
             
             return result
         return wrapper
