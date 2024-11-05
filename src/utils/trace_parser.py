@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import argparse
 import os
 from pathlib import Path
-from src.config.project_config import ROOT_DIR, DEFAULT_TRACE_FILE
+from config.project_config import ROOT_DIR, DEFAULT_TRACE_FILE
 
 class CacheSimOperation(IntEnum):
     """
