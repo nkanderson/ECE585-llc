@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import argparse
 import os
 from pathlib import Path
-from src.config.project_config import ROOT_DIR, DEFAULT_TRACE_FILE
+from config.project_config import ROOT_DIR, DATA_DIRECTORY, DEFAULT_TRACE_FILE
 
 class CacheSimOperation(IntEnum):
     """
@@ -40,8 +40,8 @@ class TraceFileParser:
         """
         self.fd = None
         if filename is None: 
-            print(f"[INFO] - Using default file: {ROOT_DIR/DEFAULT_TRACE_FILE}")
-            self.filename = str(ROOT_DIR/DEFAULT_TRACE_FILE)    # Default as specified in project_config
+            print(f"[INFO] - Using default file: {ROOT_DIR/DATA_DIRECTORY/DEFAULT_TRACE_FILE}")
+            self.filename = str(ROOT_DIR/DATA_DIRECTORY/DEFAULT_TRACE_FILE)    # Default as specified in project_config
         else: 
             self.filename = self._validate_file_path(filename)
     
