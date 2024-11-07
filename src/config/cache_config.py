@@ -4,7 +4,7 @@ This module provides a configuration class for a cache memory system, with
 parameters set via environment variables or command line arguments.
 All configuration must be specified in .env file or via command line.
 
-Command Line Usage: 
+Command Line Usage:
     python cache_config.py --capacity 64 --line-size 64 --associativity 4 --protocol MESI
 
 Required Environment Variables:
@@ -14,9 +14,11 @@ Required Environment Variables:
     CACHE_PROTOCOL: Cache coherence protocol (MESI/MSI)
 """
 
-from dotenv import load_dotenv
-import os
 import argparse
+import os
+
+from dotenv import load_dotenv
+
 
 class CacheConfig:
     def __init__(self):
@@ -29,19 +31,19 @@ class CacheConfig:
         Load configuration parameters from environment variables.
         Raises EnvironmentError if any required variable is missing.
         """
-        capacity = os.getenv('CACHE_CAPACITY_MB')
+        capacity = os.getenv("CACHE_CAPACITY_MB")
         if capacity is None:
             raise EnvironmentError("CACHE_CAPACITY_MB not set in .env file")
-        
-        line_size = os.getenv('CACHE_LINE_SIZE_B')  # Fixed variable name
+
+        line_size = os.getenv("CACHE_LINE_SIZE_B")  # Fixed variable name
         if line_size is None:
             raise EnvironmentError("CACHE_LINE_SIZE_B not set in .env file")
-            
-        associativity = os.getenv('CACHE_ASSOCIATIVITY')
+
+        associativity = os.getenv("CACHE_ASSOCIATIVITY")
         if associativity is None:
             raise EnvironmentError("CACHE_ASSOCIATIVITY not set in .env file")
-            
-        protocol = os.getenv('CACHE_PROTOCOL')
+
+        protocol = os.getenv("CACHE_PROTOCOL")
         if protocol is None:
             raise EnvironmentError("CACHE_PROTOCOL not set in .env file")
 
@@ -50,29 +52,31 @@ class CacheConfig:
         self.line_size = int(line_size)
         self.associativity = int(associativity)
         self.protocol = protocol
+
+
 """
     ------------------------------END OF CLASS----------------------------------
     ----------------------------------------------------------------------------
 """
-#--------------------------Small test for .env file usage-----------------------
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Cache Configuration')
-    parser.add_argument('--capacity', type=int, help='Cache capacity in MB')
-    parser.add_argument('--line-size', type=int, help='Cache line size in bytes')
-    parser.add_argument('--associativity', type=int, help='Cache associativity')
-    parser.add_argument('--protocol', type=str, help='Cache protocol')
-    
+# --------------------------Small test for .env file usage-----------------------
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Cache Configuration")
+    parser.add_argument("--capacity", type=int, help="Cache capacity in MB")
+    parser.add_argument("--line-size", type=int, help="Cache line size in bytes")
+    parser.add_argument("--associativity", type=int, help="Cache associativity")
+    parser.add_argument("--protocol", type=str, help="Cache protocol")
+
     args = parser.parse_args()
 
     # Override environment variables with command line arguments if provided
     if args.capacity:
-        os.environ['CACHE_CAPACITY_MB'] = str(args.capacity)
+        os.environ["CACHE_CAPACITY_MB"] = str(args.capacity)
     if args.line_size:
-        os.environ['CACHE_LINE_SIZE_B'] = str(args.line_size)  # Fixed variable name
+        os.environ["CACHE_LINE_SIZE_B"] = str(args.line_size)  # Fixed variable name
     if args.associativity:
-        os.environ['CACHE_ASSOCIATIVITY'] = str(args.associativity)
+        os.environ["CACHE_ASSOCIATIVITY"] = str(args.associativity)
     if args.protocol:
-        os.environ['CACHE_PROTOCOL'] = args.protocol
+        os.environ["CACHE_PROTOCOL"] = args.protocol
 
     try:
         cache_config = CacheConfig()

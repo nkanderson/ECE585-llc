@@ -2,4 +2,4 @@
 
 ## Local Development
 
-See [LOCAL_DEV.md](docs/LOCAL_DEV.md)
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md)
