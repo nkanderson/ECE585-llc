@@ -3,21 +3,10 @@ from typing import Optional, Tuple
 import argparse
 import os
 from pathlib import Path
-from config.project_config import ROOT_DIR, DATA_DIRECTORY, DEFAULT_TRACE_FILE
+from config.project_config import ROOT_DIR, DEFAULT_TRACE_FILE
+from common.constants import TraceCommand
 
-class CacheSimOperation(IntEnum):
-    """
-    Enumeration of cache simulation operations.
-    """
-    L1_DATA_READ        = 0 # Read request from L1 data cache
-    L1_DATA_WRITE       = 1 # Write request from L1 data cache
-    L1_INSTRUCTION_READ = 2 # Read request from L1 instruction cache
-    SNOOPED_READ        = 3 # Snooped read request 
-    SNOOPED_WRITE       = 4 # Snooped write request
-    SNOOPED_READ_MODIFY = 5 # Snooped read with intent to modify request
-    SNOOPED_INVALIDATE  = 6 # Snooped invalidate command
-    CLEAR_CACHE         = 8 # Clear the cache and reset all state
-    PRINT_CACHE         = 9 # Print contents and state of each valid cache line
+
 
 class TraceFileParser: 
     """
@@ -87,13 +76,13 @@ class TraceFileParser:
             except Exception as e:
                 print(f"[ERROR] - Closing file: {str(e)}") 
 
-    def read_line(self) -> Optional[Tuple[CacheSimOperation, Optional[int]]]: 
+    def read_line(self) -> Optional[Tuple[TraceCommand, Optional[int]]]: 
         """
         Read and parse a single line from the trace file.
 
         Returns:
-            Optional[Tuple[CacheSimOperation, Optional[int]]]: A tuple containing:
-                - CacheSimOperation: The type of cache operation
+            Optional[Tuple[TraceCommand, Optional[int]]]: A tuple containing:
+                - TraceCommand: The type of cache operation
                 - int: The memory address in hexadecimal
                 Returns None if EOF is reached or if line is invalid.
 
@@ -121,7 +110,7 @@ class TraceFileParser:
                 print(f"[WARNING] : Invalid line read from trace, recursing to next line")
                 return self.read_line()
                 
-            op = CacheSimOperation(int(parts[0])) #Cast to enum class
+            op = TraceCommand(int(parts[0]))      #Cast to enum class
             addr = int(parts[1], 16)              #Convert string to integer using base 16 (i.e. hex)
             return op, addr
             
