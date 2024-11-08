@@ -1,18 +1,18 @@
 """
-CacheLogging utility which handles simulated events and logs them based on each operation. 
+Description: CacheLogging utility which handles simulated events and logs them based on each operation. 
 
-Classes:
-    Statistics: Data class for storing and calculating cache usage metrics
-    CacheLogger: Handles hierarchical logging with configurable levels (SILENT/NORMAL/DEBUG)
+Author: Reece Wayt
 
-Functions:
-    log_operation: Decorator that wraps cache operations with logging functionality, preserving
-                  original behavior while adding contextual logging based on operation type
+Sources: 
+    - https://medium.com/@kuldeepkumawat195/python-print-flush-complete-guide-learn-today-f42f87cbc38c
+    - https://realpython.com/primer-on-python-decorators/
+
 """ 
 
 from dataclasses import dataclass
 from functools import wraps
-from typing import Callable
+from typing import Callable, TextIO
+import sys
 from src.common.constants import LogLevel, SnoopResult, BusOp, CacheMessage
 
 @dataclass
@@ -52,13 +52,11 @@ class Statistics:
         total = self.cache_hits + self.cache_misses
         return self.cache_hits / total if total > 0 else 0
 
-    def print_stats(self):
-        """Print formatted cache statistics
-        
-        The statistics are left-aligned with consistent padding from labels.
-        Format explanation:
-            - :<8 means left-align in field of width 8
-            - :<8.5% means left-align, show as percentage with 5 decimal places
+    def print_stats(self, stream : TextIO = sys.stdout):
+        """Print formatted cache statistics to specified stream
+        Args: 
+            stream (TextIO): Output stream (defaults to sys.stdout)
+
         """
         stats = f"""
 ----------------------------------
@@ -71,18 +69,43 @@ class Statistics:
   Cache hit ratio:        {self.cache_hit_ratio:<9.5%}
 ----------------------------------
 """
-        print(stats)
+        print(stats, file=stream, flush=True) #flush avoids buffered output
 
 class CacheLogger(Statistics):
-    """Hierarchical logging system with statistics tracking"""
-    def __init__(self, level: LogLevel = LogLevel.NORMAL):
+    """
+    Hierarchical logging system with statistics tracking and stream separation. 
+    Silent logs go to stdout, while Normal and Debug logs go to stderr.
+
+    Usage:
+        # Basic usage (uses sys.stdout/stderr by default)
+        > logger = CacheLogger(level=LogLevel.NORMAL)
+        # Custom streams
+        > with open('stats.log', 'w') as stdout, open('debug.log', 'w') as stderr:
+        >   logger = CacheLogger(level=LogLevel.DEBUG, stdout=stdout, stderr=stderr)
+
+    """
+    def __init__(self, level: LogLevel = LogLevel.NORMAL,
+                stdout: TextIO = sys.stdout,
+                stderr: TextIO = sys.stderr):
         super().__init__()
         self.level = level
+        self.stdout = stdout
+        self.stderr = stderr
 
     def log(self, level: LogLevel, message: str):
-        # Log message if level is sufficient
-        if self.level >= level: 
-            print(f"{level} : {message}") 
+        """
+        Log message if level is sufficient
+
+        Args: 
+            level (LogLevel): Logging level of the message
+            message (str): Message string
+        Note:
+            - Silent level messages go to stdout
+            - Normal and Debug level messages go to stderr
+        """
+        if self.level >= level:
+            stream = self.stdout if level == LogLevel.SILENT else self.stderr
+            print(f"{level.name} : {message}", file=stream, flush=True) 
 
     #Statistics recording methods
     def record_read(self): self.cache_reads += 1
@@ -91,7 +114,7 @@ class CacheLogger(Statistics):
     def record_miss(self): self.cache_misses += 1
 
 
-def log_operation(logger: CacheLogger):i
+def log_operation(logger: CacheLogger):
     """
     A decorator factory that creates function decorators for cache operation logging.
     
@@ -189,6 +212,9 @@ def log_operation(logger: CacheLogger):i
                         f"L2: {CacheMessage(args[1]).name} {args[2]:x}")
                 
                 case _:  # Default case
+                    logger.log(LogLevel.NORMAL, 
+                            f"[ERROR] Logger could not find matching case for {op_name}, "
+                            f"you should not be seeing this") 
                     pass
 
                                    
