@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Callable, TextIO
 
-from src.common.constants import BusOp, CacheMessage, LogLevel, SnoopResult
+from common.constants import BusOp, CacheMessage, LogLevel, SnoopResult
 
 
 @dataclass
@@ -129,7 +129,7 @@ class CacheLogger(Statistics):
 
 def log_operation(logger: CacheLogger):
     """
-    A decorator factory that creates function decorators for cache operation logging.
+    A decorator that creates function decorators for cache operation logging.
 
     This decorator implements a hierarchical logging system with configurable levels
     through the CacheLogger class. It uses closure to maintain logger state and

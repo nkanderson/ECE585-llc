@@ -1,0 +1,12 @@
+DEBUG : Entering BusOperation with args=(<BusOp.READ: 1>, 4660, <SnoopResult.NOHIT: 0>) kwargs={}
+NORMAL : BusOp: READ, Address: 1234, Snoop Result: NOHIT
+DEBUG : Exiting BusOperation with result: None
+DEBUG : Entering GetSnoopResult with args=(22136,) kwargs={}
+NORMAL : GetSnoopResult: Address 5678, Snoop Result: HIT
+DEBUG : Exiting GetSnoopResult with result: 1
+DEBUG : Entering PutSnoopResult with args=(39612, <SnoopResult.NOHIT: 0>) kwargs={}
+NORMAL : SnoopResult: Address 9abc, SnoopResult: NOHIT
+DEBUG : Exiting PutSnoopResult with result: None
+DEBUG : Entering MessageToCache with args=(<CacheMessage.INVALIDATELINE: 3>, 57072) kwargs={}
+NORMAL : L2: INVALIDATELINE def0
+DEBUG : Exiting MessageToCache with result: None
