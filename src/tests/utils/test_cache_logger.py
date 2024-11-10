@@ -40,19 +40,6 @@ class TestCacheLogger(unittest.TestCase):
 
         return DummyCache()
 
-    def test_statistics_tracking(self):
-        """Test that statistics are properly tracked"""
-        self.logger.record_read()
-        self.logger.record_write()
-        self.logger.record_hit()
-        self.logger.record_miss()
-
-        self.assertEqual(self.logger.cache_reads, 1)
-        self.assertEqual(self.logger.cache_writes, 1)
-        self.assertEqual(self.logger.cache_hits, 1)
-        self.assertEqual(self.logger.cache_misses, 1)
-        self.assertEqual(self.logger.cache_hit_ratio, 0.5)
-
     def test_logging_levels(self):
         """Test that different logging levels work correctly"""
         # Test SILENT level
@@ -118,22 +105,6 @@ class TestCacheLogger(unittest.TestCase):
         stderr_output = self.stderr.getvalue()
         self.assertIn("L2: INVALIDATELINE def0", stderr_output)
 
-    def test_print_stats(self):
-        """Test statistics printing"""
-        self.logger.cache_reads = 100
-        self.logger.cache_writes = 50
-        self.logger.cache_hits = 75
-        self.logger.cache_misses = 25
-
-        self.logger.print_stats(self.stdout)
-        stats_output = self.stdout.getvalue()
-
-        self.assertIn("Number of cache reads:  100", stats_output)
-        self.assertIn("Number of cache writes: 50", stats_output)
-        self.assertIn("Number of cache hits:   75", stats_output)
-        self.assertIn("Number of cache misses: 25", stats_output)
-        self.assertIn("Cache hit ratio:        75.00000", stats_output)
-
     def test_logger_output_demonstration(self):
         """Demonstration test that shows actual logger output"""
         # Create a logger that writes to both StringIO (for assertions) and console
@@ -160,13 +131,6 @@ class TestCacheLogger(unittest.TestCase):
 
         print("\n3. Testing Cache Message logging:")
         dummy.MessageToCache(CacheMessage.INVALIDATELINE, 0xDEF0)
-
-        print("\n4. Testing Statistics:")
-        demo_logger.cache_reads = 100
-        demo_logger.cache_writes = 50
-        demo_logger.cache_hits = 75
-        demo_logger.cache_misses = 25
-        demo_logger.print_stats()
 
         print("\n=== End Logger Output Demonstration ===")
 
@@ -200,15 +164,6 @@ class TestCacheLogger(unittest.TestCase):
                 dummy.GetSnoopResult(0x5678)
                 dummy.PutSnoopResult(0x9ABC, SnoopResult.NOHIT)
                 dummy.MessageToCache(CacheMessage.INVALIDATELINE, 0xDEF0)
-
-                # Record some stats
-                file_logger.record_read()
-                file_logger.record_write()
-                file_logger.record_hit()
-                file_logger.record_miss()
-
-                # Print stats
-                file_logger.print_stats(stats_file)
 
                 # Ensure everything is written
                 debug_file.flush()

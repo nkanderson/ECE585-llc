@@ -1,61 +1,24 @@
-# Test Plan for Cache Logger
+# Test Pln for Cache Logger
 
 ## Overview
-This test plan covers the verification of the CacheLogger class and its decorator functionality. The CacheLogger is responsible for tracking cache statistics and logging various cache operations with different levels of detail.
+This test plan covers the verification of the CacheLogger class and its decorator functionality. The CacheLogger is responsible for logging various cache operations with different levels of detail.
 
 Running the unit test module
 ```bash
- python -m unittest tests/utils/test_cache_logger.py
-
+python -m unittest tests.utils.test_cache_logger
  #for more verbose results
- python -m unittest -vv tests/utils/test_cache_logger.py
+python -m unittest -vv tests.utils.test_cache_logger
 ```
 
 ## Test Cases
 
-### 1. Statistics Tracking Test
-- Purpose: Verifies logger correctly tracks basic cache statistics
-#### 1.1. Test that each counter increments correctly
-- Expected result: Each cache operation/result will increment there respective counters
-	- cache_reads
-	- cahce_writes
-	- cache_hits
-	- cache_misses
-#### 1.2. Test that the hit ratio is calculated accurately
-- Expected result: Cache hit ratio will dynamically calculate ratio
-	- $$ cache_hits / (cache_hits + cache_misses) $$
-### 1.3. Statistics Printing Test
-- Expected result: The printed statistics will accurately and completely print the correct values as determined by the simulation events
+### 1. Logging Levels Test
+- Purpose: Verifies logger will properly handle logging based on its instantiated context level
 
-#### Results of Test 1: 
-- Printing confirmed for test 1.3 
-```bash
-Testing Statistics:
-
-----------------------------------
-          Cache Statistics
-----------------------------------
-  Number of cache reads:  100
-  Number of cache writes: 50
-  Number of cache hits:   75
-  Number of cache misses: 25
-  Cache hit ratio:        75.00000%
-----------------------------------
-```
-- Assertion based checks pass for test 1.1 and 1.2
-```bash
-test_statistics_tracking (tests.utils.test_cache_logger.TestCacheLogger.test_statistics_tracking)
-Test that statistics are properly tracked ... ok
-```
-
-
-### 2. Logging Levels Test
- - Purpose: Verifies logger will properly handle logging based on its instantiated context level
-
-#### 2.1. SILENT level only outputs to stdout and ignores NORMAL/DEBUG messages
-#### 2.2. NORMAL level captures both SILENT and NORMAL messages, but ignores DEBUG
-#### 2.3. DEBUG captures SILENT and NORMAL, plus more verbose output. 
-#### 2.4. Check that message for NORMAL and DEBUG go to stderr
+#### 1.1. SILENT level only outputs to stdout and ignores NORMAL/DEBUG messages
+#### 1.2. NORMAL level captures both SILENT and NORMAL messages, but ignores DEBUG
+#### 1.3. DEBUG captures SILENT and NORMAL, plus more verbose output
+#### 1.4. Check that message for NORMAL and DEBUG go to stderr
 
 #### Results
 - Test passed for all levels, included use of stdout, stderr, and custom stream files. See debug.log, and stats.log for custom stream outputs. 
@@ -87,13 +50,13 @@ test_logging_levels (tests.utils.test_cache_logger.TestCacheLogger.test_logging_
 Test that different logging levels work correctly ... ok
 ```
 
-### 3. Bus Operation Logging Test
+### 2. Bus Operation Logging Test
 - Purpose: Validates the logging of cache bus operations
-#### 3.1. Test BusOperation() Method
-#### 3.2. Test GetSnoopResult() Method
-#### 3.3. Test PutSnoopResult() Method
-#### 3.4. Test MessageToCache
-#### 3.4 Test Default Handler
+#### 2.1. Test BusOperation() Method
+#### 2.2. Test GetSnoopResult() Method
+#### 2.3. Test PutSnoopResult() Method
+#### 2.4. Test MessageToCache
+#### 2.5. Test Default Handler
 #### Results
 ```bash
 test_bus_operation_logging (tests.utils.test_cache_logger.TestCacheLogger.test_bus_operation_logging)
