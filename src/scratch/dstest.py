@@ -1,7 +1,7 @@
 """
 dstest.py -- python script to demonstrate cache class.
 Uses the class to instantiate an 8 set 2-way associative
-cache data structure and prints the empty structure in 
+cache data structure and prints the empty structure in
 order to visualize it.
 """
 
@@ -15,4 +15,3 @@ print('testCache has', testCache.numSets, 'sets and is', testCache.assoc, 'way a
 print(" ")
 print("Set  Ways")
 pprint(testCache.set)
-

@@ -22,8 +22,8 @@ class cache:
         """
         contruct data structure using dictionary comprehension
         """
-        self.set = {index: 
-                    {way: {'valid': 0, 'dirty': 0, 'mesi': 0, 'tag': 0} 
+        self.set = {index:
+                    {way: {'valid': 0, 'dirty': 0, 'mesi': 0, 'tag': 0}
                      for way in range(assoc)} for index in range(numSets)}
 
         """
