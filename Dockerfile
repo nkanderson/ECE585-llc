@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm
+FROM python:3.13-slim-bookworm AS base
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -18,6 +18,24 @@ RUN useradd --create-home llcsim
 WORKDIR /home/llcsim
 USER llcsim
 
-COPY ./src .
+COPY ./src ./app
+
+#
+# Create test image
+#
+FROM base AS test
+
+COPY ./tests ./tests
+
+# Set the PYTHONPATH environment variable for unittest
+ENV PYTHONPATH=/home/llcsim/app
+
+# Run the tests
+CMD ["python", "-m", "unittest"]
+
+#
+# Create production image
+#
+FROM base AS production
 
 CMD [ "python", "main.py" ]
