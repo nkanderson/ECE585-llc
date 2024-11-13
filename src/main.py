@@ -7,8 +7,9 @@ Date: November, 2024
 Description: This program simulates the behavior of a 16MB, 16-way set associative last level cache.
 """
 
+import sys
 from common.constants import LogLevel
-from config.project_config import args, logger
+from config.project_config import config
 from utils.event_handler import handle_event
 from utils.trace_parser import TraceFileParser
 
@@ -17,6 +18,12 @@ def main():
     """
     Main entry point of the LLC Simulation program.
     """
+    # Initialize config with arguments from the command line
+    config.initialize(sys.argv[1:])
+
+    logger = config.get_logger()
+    args = config.get_args()
+
     try:
         with TraceFileParser(args.file) as parser:
             while True:

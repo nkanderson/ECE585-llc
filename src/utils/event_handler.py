@@ -1,5 +1,5 @@
 from common.constants import LogLevel
-from config.project_config import logger
+from config.project_config import config
 
 
 def handle_event(event_opcode: int) -> dict[str, int]:
@@ -14,6 +14,7 @@ def handle_event(event_opcode: int) -> dict[str, int]:
         dict: A dictionary with cache statistics, including 'cache_reads', 'cache_writes',
               'cache_hits', and 'cache_misses'.
     """
+    logger = config.get_logger()
     cache_stats = {
         "cache_reads": 0,
         "cache_writes": 0,
