@@ -9,7 +9,7 @@ class cache:
     PLRU bits for that index and n ways keyed 0 to n-1, the thrid level
     contains key pairs for the valid, dirty, mesi, and tag bits.
 
-    Attributes: 
+    Attributes:
         numSets: total number of sets in the cache
         assoc: associativity of the cache (number of lines per set)
     """
@@ -22,12 +22,14 @@ class cache:
         """
         contruct data structure using dictionary comprehension
         """
-        self.set = {index: {way: {'valid':0, 'dirty':0, 'mesi':0, 'tag':0} for way in range(assoc)} for index in range(numSets)}
+        self.set = {index: 
+                    {way: {'valid': 0, 'dirty': 0, 'mesi': 0, 'tag': 0} 
+                     for way in range(assoc)} for index in range(numSets)}
 
         """
-        Because the data structure is initially built using dictionary 
+        Because the data structure is initially built using dictionary
         comphrension, which cannot be used in combination with other
         dictionary entries, add plru key separately.
         """
-        for i in range(numSets): 
+        for i in range(numSets):
             self.set[i]['plru'] = 0
