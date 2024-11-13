@@ -1,3 +1,10 @@
+"""
+dstest.py -- python script to demonstrate cache class.
+Uses the class to instantiate an 8 set 2-way associative
+cache data structure and prints the empty structure in 
+order to visualize it.
+"""
+
 from pprint import pprint
 from cachestruct import cache
 
