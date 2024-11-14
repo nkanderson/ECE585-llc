@@ -3,5 +3,8 @@ __pycache__/
 *.pyc
 **/.bash_history
 
+# Include testing log files for final report
+!*.log
+
 # Ignore editor-specific settings
 .vscode/
