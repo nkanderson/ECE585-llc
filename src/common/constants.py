@@ -58,4 +58,28 @@ class TraceCommand(IntEnum):
     SNOOP_RWIM = 5  # snooped read with intent to modify
     SNOOP_INVALIDATE = 6  # snooped invalidate command
     CLEAR_CACHE = 8  # clear cache and reset all state
-    PRINT_CACHE = 9  # print contents and state of valid linesa
+    PRINT_CACHE = 9  # print contents and state of valid lines
+
+
+class MESIState(IntEnum):
+    """
+    Cache coherency states for the MESI protocol (2-bit encoding):
+
+    M (Modified)  - Line is dirty and exclusive to this cache (0b11)
+    E (Exclusive) - Line is clean and exclusive to this cache (0b10)
+    S (Shared)    - Line is clean and may exist in other caches (0b01)
+    I (Invalid)   - Line is invalid/unused (0b00)
+
+    Source :
+        - https://en.wikipedia.org/wiki/MESI_protocol
+    """
+
+    INVALID = 0  # 0b00
+    SHARED = 1  # 0b01
+    EXCLUSIVE = 2  # 0b10
+    MODIFIED = 3  # 0b11
+
+    @property
+    def bits(self) -> int:
+        """Returns the 2-bit encoding of the state"""
+        return self.value

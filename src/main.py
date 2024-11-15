@@ -8,6 +8,7 @@ Description: This program simulates the behavior of a 16MB, 16-way set associati
 """
 
 import sys
+
 from common.constants import LogLevel
 from config.project_config import config
 from utils.event_handler import handle_event
