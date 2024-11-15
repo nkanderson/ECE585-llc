@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -6,7 +7,7 @@ from config.project_config import (
     DATA_DIRECTORY,
     DEFAULT_TRACE_FILE,
     ROOT_DIR,
-    parse_arguments,
+    config,
 )
 
 
@@ -149,7 +150,9 @@ class TraceFileParser:
 # Small test for parser
 def main():
     """Main entry point for the trace file parser utility"""
-    args = parse_arguments()
+    config.initialize(sys.argv[1:])
+
+    args = config.get_args()
     try:
         with TraceFileParser(args.file) as parser:
             while True:
