@@ -6,6 +6,12 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
+# Cache config env vars
+ENV CACHE_CAPACITY_MB=16
+ENV CACHE_LINE_SIZE_B=64
+ENV CACHE_ASSOCIATIVITY=16
+ENV CACHE_PROTOCOL=MESI
+
 # Security updates, run as root:
 RUN apt-get update && apt-get -y upgrade
 

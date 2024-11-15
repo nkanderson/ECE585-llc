@@ -22,8 +22,9 @@ from dotenv import load_dotenv
 
 class CacheConfig:
     def __init__(self):
-        if not load_dotenv():
-            raise EnvironmentError("No .env file found")
+        # If load_dotenv is None because no .env file is present,
+        # load_config will check for values from the environment instead
+        load_dotenv()
         self.load_config()
 
     def load_config(self):
