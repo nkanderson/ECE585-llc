@@ -40,7 +40,7 @@ class TestCacheSet(unittest.TestCase):
 
         # Check all ways are properly initialized
         for way in self.cache_set.ways:
-            self.assertIsNone(way.tag)
+            self.assertEqual(way.tag, 0)
             self.assertTrue(way.is_invalid())
 
     def test_read_operations(self):

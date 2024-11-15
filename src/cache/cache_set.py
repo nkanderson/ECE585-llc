@@ -27,8 +27,18 @@ MESI Protocol Support:
 Replacement Policy:
 ------------------------------------------------------------------------------
 Uses pseudo-LRU (tree-based) for selecting victim lines during allocation.
-For n-way associative set, uses (n-1) bits to maintain binary tree state.
-
+For n-way associative set, uses (n-1) bits to maintain binary tree state. Each node
+in the tree is stored as a bit, with the following properties depending on operation:
+    - Access Update:
+        - If left child accessed, parent bit is cleared
+        - If right child accessed, parent bit is set
+    - Replacement Policy:
+        - Follow tree path based on PLRU state to find victim line
+        - Tree is traversed as a binary tree with (n-1) internal nodes
+        - Leaf nodes represent cache ways, internal nodes are PLRU bits
+        - Victim line is selected based on PLRU tree state
+            - If bit is a 0, go right -> next_node = 2*node + 2
+            - If bit is a 1, go left -> next_node = 2*node + 1
 Constraints:
 ------------------------------------------------------------------------------
 - num_ways must be power of 2 between MIN_WAYS and MAX_WAYS
@@ -55,7 +65,7 @@ class CacheLine:
     Represents a cache line with MESI protocol state tracking and L1 inclusion status.
     """
 
-    tag: Optional[int] = None
+    tag: int = 0  # Tag value for the line
     mesi_state: MESIState = MESIState.INVALID
     in_l1: bool = False  # For cache coherency
 
@@ -134,13 +144,38 @@ class CacheSetPLRUMESI:
         self.state = 0
 
     def __get_parent(self, node: int) -> int:
-        """Helper method for PLRU tree traversal"""
+        """
+        Helper method for PLRU tree traversal
+            Args:
+                node: current node index
+            Returns:
+              parent node of current node
+        """
         return (node - 1) // 2
 
     def __update_plru(self, way_index: int) -> None:
         """
-        Update PLRU state when a way is accessed. If left child is accessed, parent bit is cleared.
-        If right child is accessed, parent bit is set.
+        Update PLRU state bits when a cache way is accessed. The PLRU tree is represented
+        using (num_ways - 1) bits stored in self.state, where each bit represents a node
+        in a binary tree.
+            Tree Structure:
+            - For n ways, we need (n-1) bits to represent internal nodes
+            - Leaf nodes represent physical cache ways (0 to num_ways-1)
+            - Internal nodes store PLRU bits that guide replacement decisions
+            Example for 4-way cache:
+                 0          <- Bit position in self.state
+               /      /
+              1       2       <- Bit positions in self.state
+            /   /   /   /
+           0    1  2    3    <- Physical way indices in self.ways[]
+
+            Update Rules:
+            - When accessing a left child: Clear parent's bit (0)
+            - When accessing a right child: Set parent's bit (1)
+            - Updates propagate up the tree (bottom up traveral) to maintain PLRU state
+
+            Args:
+                way_index: Physical index of the accessed cache way (0 to num_ways-1)
         """
         if way_index >= self.num_ways:
             raise ValueError(
@@ -171,8 +206,14 @@ class CacheSetPLRUMESI:
     def __get_plru_victim(self) -> int:
         """
         Find the way to replace according to PLRU policy.
+        Replacement Policy:
+            - Follow tree path based on PLRU state to find victim line
+                - If bit is a 0, go right -> next_node = 2*node + 2
+                - If bit is a 1, go left -> next_node = 2*node + 1
+            - Traverse until leaf nodes are reached, which represent cache ways
         Returns:
-            - Way index of victim line
+            Way index of the victim line from self.ways[]
+                - way_index = node - (num_ways - 1)
         """
         node = 0
         for _ in range(self.tree_levels):
@@ -216,7 +257,7 @@ class CacheSetPLRUMESI:
             self.__update_plru(way_index)
 
             return True
-        return False  # Miss
+        return False  # Miss, TODO: Implement write allocate logic, might be done by controller
 
     def allocate(
         self, tag: int, state: MESIState = MESIState.EXCLUSIVE
@@ -241,7 +282,7 @@ class CacheSetPLRUMESI:
                 # Found an invalid line, use it
                 line.tag = tag
                 line.mesi_state = state
-                line.in_l1 = False
+                line.in_l1 = False  # TODO: Need to add inclusivity handling
                 self.__update_plru(way_index)
                 return None, way_index
         # No invalid lines found, use PLRU to select victim
