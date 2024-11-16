@@ -4,15 +4,39 @@
 
 ### Building the Docker Image
 
-To build the Docker image for the program, run the following command:
+#### Build Image for Testing and Development
+
+Our Dockerfile uses a base image and multi-stage builds to allow for creation of a testing and development image that is separate from the production image, which does not contain any test files. **NOTE:** Adding a Python package in requirements.txt will require rebuilding to ensure the new package is contained in the image.
+
+To build the testing and development Docker image for the program, run the following command:
 
 ```bash
-docker build -t llcsim:latest .
+docker build --target test -t llcsim:dev .
 ```
 
-This command builds the Docker image and tags it as `llcsim` with the `latest` version.
+This command builds the Docker image using the `test` stage from the Dockerfile and tags it as `llcsim` with the `dev` version.
 
-**NOTE:** Adding a Python package in requirements.txt will require rebuilding to ensure the new package is contained in the image.
+The image can be run in a container **which will be removed on exit** using the following command:
+
+```bash
+docker run --rm -it llcsim:dev bash
+```
+**NOTE:** Do not use this for development or any persistent changes to code. The container is ephemeral and is best suited for troubleshooting and automated testing purposes only.
+
+This image will run the tests automatically using the following command:
+```bash
+docker run --rm -it llcsim:dev
+```
+
+#### Production Image
+
+To build the production Docker image, run the following command:
+
+```bash
+docker build --target production -t llcsim:latest .
+```
+
+This command builds the production Docker image and tags it as `llcsim` with the `latest` version.
 
 ### Running the Docker Container
 
@@ -41,6 +65,22 @@ This command does two things:
 Once inside the container, you can execute your main program using:
 ```bash
 python main.py
+```
+
+You can run tests using the following:
+```bash
+python -m unittest
+```
+This runs all the tests. Run specific tests with the following:
+
+```bash
+python -m unittest tests.utils.test_cache_logger
+```
+Example of running a specific test file - in this case, the the `test_cache_logger.py` file in `/tests/utils`.
+
+It may sometimes be helpful to rebuild to remove any stale images:
+```bash
+docker compose build --no-cache
 ```
 
 ### Container Behavior

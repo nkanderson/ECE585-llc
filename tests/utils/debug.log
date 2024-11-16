@@ -1,0 +1,12 @@
+Entering BusOperation with args=(<BusOp.READ: 1>, 4660, <SnoopResult.NOHIT: 0>) kwargs={}
+BusOp: READ, Address: 1234, Snoop Result: NOHIT
+Exiting BusOperation with result: None
+Entering GetSnoopResult with args=(22136,) kwargs={}
+GetSnoopResult: Address 5678, Snoop Result: HIT
+Exiting GetSnoopResult with result: 1
+Entering PutSnoopResult with args=(39612, <SnoopResult.NOHIT: 0>) kwargs={}
+SnoopResult: Address 9abc, SnoopResult: NOHIT
+Exiting PutSnoopResult with result: None
+Entering MessageToCache with args=(<CacheMessage.INVALIDATELINE: 3>, 57072) kwargs={}
+L2: INVALIDATELINE def0
+Exiting MessageToCache with result: None

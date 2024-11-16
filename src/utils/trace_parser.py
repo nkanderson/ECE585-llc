@@ -1,9 +1,14 @@
-import argparse
+import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
 from common.constants import TraceCommand
-from config.project_config import DATA_DIRECTORY, DEFAULT_TRACE_FILE, ROOT_DIR
+from config.project_config import (
+    DATA_DIRECTORY,
+    DEFAULT_TRACE_FILE,
+    ROOT_DIR,
+    config,
+)
 
 
 class TraceFileParser:
@@ -142,30 +147,12 @@ class TraceFileParser:
 """
 
 
-def parse_arguments():
-    """
-    Parse command line arguments for the trace file parser.
-
-    Returns:
-        argparse.Namespace: Parsed command line arguments
-    """
-    parser = argparse.ArgumentParser(
-        description="Cache Simulation Trace File Parser",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-f", "--file", type=str, help="Path to the trace file to process", default=None
-    )
-    parser.add_argument(
-        "-d", "--debug", action="store_true", help="Enable debug output"
-    )
-    return parser.parse_args()
-
-
 # Small test for parser
 def main():
     """Main entry point for the trace file parser utility"""
-    args = parse_arguments()
+    config.initialize(sys.argv[1:])
+
+    args = config.get_args()
     try:
         with TraceFileParser(args.file) as parser:
             while True:

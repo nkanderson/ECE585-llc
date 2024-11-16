@@ -1,10 +1,16 @@
-FROM python:3.13-slim-bookworm
+FROM python:3.13-slim-bookworm AS base
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
+
+# Cache config env vars
+ENV CACHE_CAPACITY_MB=16
+ENV CACHE_LINE_SIZE_B=64
+ENV CACHE_ASSOCIATIVITY=16
+ENV CACHE_PROTOCOL=MESI
 
 # Security updates, run as root:
 RUN apt-get update && apt-get -y upgrade
@@ -18,6 +24,24 @@ RUN useradd --create-home llcsim
 WORKDIR /home/llcsim
 USER llcsim
 
-COPY ./src .
+COPY ./src ./app
+
+#
+# Create test image
+#
+FROM base AS test
+
+COPY ./tests ./tests
+
+# Set the PYTHONPATH environment variable for unittest
+ENV PYTHONPATH=/home/llcsim/app
+
+# Run the tests
+CMD ["python", "-m", "unittest"]
+
+#
+# Create production image
+#
+FROM base AS production
 
 CMD [ "python", "main.py" ]

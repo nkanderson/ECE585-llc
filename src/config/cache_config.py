@@ -22,8 +22,9 @@ from dotenv import load_dotenv
 
 class CacheConfig:
     def __init__(self):
-        if not load_dotenv():
-            raise EnvironmentError("No .env file found")
+        # If load_dotenv is None because no .env file is present,
+        # load_config will check for values from the environment instead
+        load_dotenv()
         self.load_config()
 
     def load_config(self):
@@ -48,6 +49,7 @@ class CacheConfig:
             raise EnvironmentError("CACHE_PROTOCOL not set in .env file")
 
         # Convert values
+        self.total_capacity_mb = int(capacity)
         self.total_capacity = int(capacity) * 2**20  # Convert MB to bytes
         self.line_size = int(line_size)
         self.associativity = int(associativity)

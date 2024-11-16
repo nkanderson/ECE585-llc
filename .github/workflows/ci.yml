@@ -22,3 +22,16 @@ jobs:
         # to ensure our desired .env file is present in the container.
         # This will likely be useful for testing rather than linting.
         run: docker run llc:ci bash -c "flake8 --max-line-length=120"
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build --target test -t llc:ci .
+
+      - name: Run unittest inside Docker container
+        # Can use --env-file .env.ci in this command, for example,
+        # to ensure our desired .env file is present in the container.
+        run: docker run llc:ci
