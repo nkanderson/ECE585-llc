@@ -113,7 +113,10 @@ class Config:
         parser.add_argument(
             "-d", "--debug", action="store_true", help="Enable debug output"
         )
-        return parser.parse_args()
+        # Only parse known arguments to avoid conflicts with other CLI arguments
+        args, _ = parser.parse_known_args()
+
+        return args
 
 
 # Initialize a global config instance
