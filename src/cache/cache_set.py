@@ -24,6 +24,9 @@ MESI Protocol Support:
 - Shared (S): Line is clean and may exist in other caches
 - Invalid (I): Line is unused/invalid
 
+Note: Getting and Setting of MESI states is controlled by the MESIStateDescriptor class
+    See Source - https://realpython.com/python-descriptors/
+
 Replacement Policy:
 ------------------------------------------------------------------------------
 Uses pseudo-LRU (tree-based) for selecting victim lines during allocation.
@@ -59,6 +62,70 @@ from typing import Optional, Tuple
 from common.constants import MESIState
 
 
+class MESIStateDescriptor:
+    """
+    Descriptor that provides (property-like) controlled access to MESI state of cache lines with state transition
+    validation.
+
+    This descriptor implements the Python descriptor protocol to provide a simple interface
+    for accessing and modifying MESI states of cache lines within a cache set. It's used instead
+    of traditional properties because it enables array-like indexing syntax for accessing specific
+    cache ways.
+
+    Usage:
+        class CacheSetPLRUMESI:
+            mesi_state = MESIStateDescriptor()
+
+        # Getting state
+        state = cache_set.mesi_state[way_index] # Returns MESIState enum
+
+        # Setting state (with automatic transition validation)
+        cache_set.mesi_state[way_index] = MESIState.MODIFIED
+    """
+
+    def __get__(self, obj, objtype=None):
+        class StateAccessor:
+            def __getitem__(self_, way_index: int) -> MESIState:
+                """Get MESI state for a specific way"""
+                if way_index < 0 or way_index >= obj.num_ways:
+                    raise IndexError(f"Way index {way_index} out of range")
+                return obj.ways[way_index].mesi_state
+
+            def __setitem__(self_, way_index: int, state: MESIState):
+                """Set MESI state for a specific way with transition validation"""
+                if way_index < 0 or way_index >= obj.num_ways:
+                    raise IndexError(f"Way index {way_index} out of range")
+
+                current_state = obj.ways[way_index].mesi_state
+                valid_transitions = {
+                    MESIState.MODIFIED: {
+                        MESIState.MODIFIED,
+                        MESIState.SHARED,
+                        MESIState.INVALID,
+                    },
+                    MESIState.EXCLUSIVE: {
+                        MESIState.MODIFIED,
+                        MESIState.SHARED,
+                        MESIState.INVALID,
+                    },
+                    MESIState.SHARED: {MESIState.MODIFIED, MESIState.INVALID},
+                    MESIState.INVALID: {
+                        MESIState.MODIFIED,
+                        MESIState.EXCLUSIVE,
+                        MESIState.SHARED,
+                    },
+                }
+
+                if state not in valid_transitions[current_state]:
+                    raise ValueError(
+                        f"Invalid state transition from {current_state.name} to {state.name}"
+                    )
+
+                obj.ways[way_index].mesi_state = state
+
+        return StateAccessor()
+
+
 @dataclass
 class CacheLine:
     """
@@ -85,26 +152,6 @@ class CacheLine:
         """Check if line is in Modified state"""
         return self.mesi_state == MESIState.MODIFIED
 
-    def set_invalid(self):
-        """Set line to Invalid state"""
-        self.mesi_state = MESIState.INVALID
-
-    def set_shared(self):
-        """Set line to Shared state"""
-        self.mesi_state = MESIState.SHARED
-
-    def set_exclusive(self):
-        """Set line to Exclusive state"""
-        self.mesi_state = MESIState.EXCLUSIVE
-
-    def set_modified(self):
-        """Set line to Modified state"""
-        self.mesi_state = MESIState.MODIFIED
-
-    def get_state_bits(self) -> int:
-        """Returns the 2-bit encoding of the current MESI state"""
-        return self.mesi_state.bits
-
     def __str__(self) -> str:
         """String representation of the cache line"""
         return (
@@ -119,6 +166,8 @@ class CacheSetPLRUMESI:
     Implements an N-way set associative cache set with MESI protocol and PLRU replacement.
     Default configuration is 16-way, with supported ways from 1 to 32 (must be power of 2).
     """
+
+    mesi_state = MESIStateDescriptor()  # Descriptor for MESI state access
 
     MAX_WAYS = 32  # Maximum supported ways
     MIN_WAYS = 1  # Minimum supported ways
@@ -234,9 +283,22 @@ class CacheSetPLRUMESI:
                 return line, i
         return None, None
 
-    def read(self, tag: int) -> bool:
+    def find_way_by_tag(self, tag: int) -> Optional[int]:
         """
-        Simulates a read request to a cache set. If tag is found returns HIT, else MISS.
+        Find the way index containing a specific tag
+        Args:
+            tag: Tag to search for
+        Returns:
+            Way index if found, None if not found
+        """
+        for i, line in enumerate(self.ways):
+            if not line.is_invalid() and line.tag == tag:
+                return i
+        return None
+
+    def pr_read(self, tag: int) -> bool:
+        """
+        Simulates a processor side read request to a cache set. If tag is found returns HIT, else MISS.
         Upon a valid access plru bits are updated.
         """
         line, way_index = self.__find_line(tag)
@@ -246,9 +308,9 @@ class CacheSetPLRUMESI:
             return True
         return False  # Miss
 
-    def write(self, tag: int) -> bool:
+    def pr_write(self, tag: int) -> bool:
         """
-        Simulates a cache write request to a set. Write allocate policy is employed so any
+        Simulates a processor side cache write request to a set. Write allocate policy is employed so any
         write misses require cache to allocate line.
         If tag is found returns HIT, else MISS.
         """
@@ -260,7 +322,7 @@ class CacheSetPLRUMESI:
         return False  # Miss, TODO: Implement write allocate logic, might be done by controller
 
     def allocate(
-        self, tag: int, state: MESIState = MESIState.EXCLUSIVE
+        self, tag: int, state: MESIState = MESIState.EXCLUSIVE, in_l1: bool = False
     ) -> Tuple[Optional[CacheLine], int]:
         """
         Allocate a new cache line. First searches for invalid lines
@@ -282,7 +344,7 @@ class CacheSetPLRUMESI:
                 # Found an invalid line, use it
                 line.tag = tag
                 line.mesi_state = state
-                line.in_l1 = False  # TODO: Need to add inclusivity handling
+                line.in_l1 = in_l1  # TODO: Add inclusivity handling in parent cache
                 self.__update_plru(way_index)
                 return None, way_index
         # No invalid lines found, use PLRU to select victim
@@ -302,13 +364,27 @@ class CacheSetPLRUMESI:
         self.__update_plru(victim_way)
         return victim_info, victim_way
 
-    def __str__(self) -> str:
-        """String representation showing valid lines"""
-        output = []
-        for i, line in enumerate(self.ways):
-            if line["valid"]:
-                output.append(f"Way {i}: Tag={hex(line['tag'])}")
-        return "\n".join(output) if output else "Empty Set"
+    def print_set(self):
+        """Prints only valid lines in the set"""
+        if all(line.is_invalid() for line in self.ways):
+            return  # Empty set
+
+        print(
+            "\nValid Lines in Set:"
+            f"\nPLRU State Bits: {self.state:b}"
+            "\n----------------------------------"
+            "\nWay  | Tag      | State    | In L1"
+            "\n----------------------------------"
+        )
+        line_format = "{:3d}  | 0x{:06x} | {:9s} | {}"
+
+        for way_index, line in enumerate(self.ways):
+            if not line.is_invalid():
+                print(
+                    line_format.format(
+                        way_index, line.tag, line.mesi_state.name, line.in_l1
+                    )
+                )
 
     @property
     def associativity(self) -> int:
