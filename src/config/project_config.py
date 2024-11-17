@@ -9,8 +9,8 @@ import argparse
 from pathlib import Path
 
 from common.constants import LogLevel
-from utils.cache_logger import CacheLogger
 from config.cache_config import CacheConfig
+from utils.cache_logger import CacheLogger
 
 ROOT_DIR = Path(__file__).parents[1]
 
