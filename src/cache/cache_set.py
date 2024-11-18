@@ -370,7 +370,6 @@ class CacheSetPLRUMESI:
             return  # Empty set
 
         print(
-            "\nValid Lines in Set:"
             f"\nPLRU State Bits: {self.state:b}"
             "\n----------------------------------"
             "\nWay  | Tag      | State    | In L1"

@@ -1,8 +1,8 @@
 import math
+import warnings
 from typing import List, NamedTuple, Optional
 
-from cache_set import CacheLine, CacheSetPLRUMESI
-
+from cache.cache_set import CacheLine, CacheSetPLRUMESI
 from common.constants import LogLevel, MESIState
 from config.project_config import config  # Import global config object
 from utils.statistics import Statistics
@@ -45,7 +45,7 @@ class Cache:
         # Set cache parameters from config
         self.line_size = self.config.line_size
         self.associativity = self.config.associativity
-        self.total_capacity = self.config.total_capacity
+        self.total_capacity = self.config.total_capacity  # In Bytes
 
         # Calculate number of sets
         self.num_sets = self.total_capacity // (self.line_size * self.associativity)
@@ -64,7 +64,7 @@ class Cache:
         # Initialize list with None placeholders for sets
         self.sets: List[Optional[CacheSetPLRUMESI]] = [None] * self.num_sets
 
-        # Track number of allocated sets
+        # TODO: Not sure this is needed. Track number of allocated sets
         self.allocated_sets = 0
 
         # Dump cache configuration to logger in debug mode
@@ -76,7 +76,7 @@ class Cache:
         Args:
             address: Full memory address
         Returns:
-            AddressFields object containing decomposed fields
+            AddressFields NamedTuple containing decomposed fields
         """
         byte_select_mask = (1 << self.byte_select_bits) - 1
         index_mask = (1 << self.index_bits) - 1
@@ -88,7 +88,12 @@ class Cache:
         return AddressFields(tag=tag, index=index, byte_select=byte_select)
 
     def pr_read(self, address: int) -> bool:
-        """Processor side read request to the cache"""
+        """
+        Processor side read request to the cache
+
+        Note: This method has side effects and should no be used for Cache Searches or Snoop
+        operations. Use snoop_line methods for those operations.
+        """
         self.statistics.record_read()
         # Decompose 32-bit address into tuple of tag, index, byte_select
         addr_fields = self.__decompose_address(address)
@@ -133,8 +138,11 @@ class Cache:
             return False  # MISS
 
     def cache_line_fill(self, address: int, state: MESIState) -> Optional[CacheLine]:
-        """Fill a cache line with data and set MESI state
-        This would called after a cache miss to fill the cache line with data
+        """
+        Fill a cache line with data and set MESI state. This would be called after a cache miss
+        to fill the cache line with data. The method has run time warnings for invalid operations,
+        to be presented to the user. A cache fill would be followed by a processor read or write, and
+        the MESI state should be set using the set_line_state method.
 
         TODO: We may need to add inclusivity checks here, after all all cache
         line fills would come from L1 Cache
@@ -147,15 +155,63 @@ class Cache:
             Optional[CacheLine]: CacheLine object is return if PLRU replacement
             found a cache line to replace, or None if set not full. Returned victim
             my need to be written back to memory if a modified line.
+
+        Raises:
+            RuntimeWarning: If set is None or if line already exists
         """
         addr_fields = self.__decompose_address(address)
-        # This should never be None, as we should have allocated the set on miss
+        # This should never be None, as we should have allocated the set on a miss
         if self.sets[addr_fields.index] is None:
+            warnings.warn(
+                f"Cache set {addr_fields.index} was not allocated during a miss."
+                "Creating set now...",
+                RuntimeWarning,
+            )
             self.sets[addr_fields.index] = self.__create_set()
 
+        existing_line = self.snoop_line(address)
+        if existing_line is not None:
+            warnings.warn(
+                f"Attempting to fill already existing line at address {hex(address)}."
+                "Use set_line_state method to modify state if that is what you're trying to do."
+                "Returning None...",
+                RuntimeWarning,
+            )
+            return None
+
         cache_set = self.sets[addr_fields.index]
-        # Return the replaced cache line if set is full
-        return cache_set.allocate(addr_fields.tag, state)
+        # Allocate returns (victim_line, way_index) tuple, but we only need the victim line
+        victim_line, _ = cache_set.allocate(addr_fields.tag, state)
+        return victim_line
+
+    def snoop_line(self, address: int) -> Optional[CacheLine]:
+        """
+        Look up a cache line for snooping purposes. Returns the complete cache line
+        information if present, without modifying cache state or statistics.
+
+        This method is designed for coherence protocol handling, providing access
+        to MESI state and L1 inclusion information needed for snoop responses.
+
+        Args:
+            address: Memory address to check
+
+        Returns:
+            Optional[CacheLine]: Copy of the cache line if present, None if not cached
+        """
+        addr_fields = self.__decompose_address(address)
+
+        # Return None if set doesn't exist yet
+        if self.sets[addr_fields.index] is None:
+            return None  # No need to allocate yet, not needed by this Cache
+
+        cache_set = self.sets[addr_fields.index]
+        way_index = cache_set.find_way_by_tag(addr_fields.tag)
+
+        if way_index is not None:
+            # Return a copy of the cache line to prevent accidental modifications
+            line = cache_set.ways[way_index]
+            return CacheLine(tag=line.tag, mesi_state=line.mesi_state, in_l1=line.in_l1)
+        return None
 
     def __create_set(self) -> CacheSetPLRUMESI:
         """
@@ -224,6 +280,7 @@ class Cache:
         """Print cache contents of only valid lines"""
         for index, cache_set in enumerate(self.sets):
             if cache_set is not None:
+                print(f"\nValid Lines in Set 0x{index:04x}")
                 self.sets[index].print_set()
 
     @property
