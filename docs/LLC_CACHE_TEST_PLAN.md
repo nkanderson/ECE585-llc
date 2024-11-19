@@ -148,8 +148,139 @@ This is a processor side request from the L1 data cache (i.e. Misses in L1).
 - Note: In this scenario we will need to verify that our Cache performs writeback when it evicts a Modified Line
 
 ### Command 1 - Write request from L1 data cache
+This is a processor side request from the L1 data cache (i.e. Misses in L1). 
+**Simulation Flow:** 
+1. **Address Lookup**
+   - Calculate set index from address
+   - Search all ways in the set for matching tag
+2. **Cache Hit Case**
+   - If line exists in LLC:
+     * Increment hit counter
+     * Increment write counter
+     * Check MESI state of line
+     * If state is Modified:
+         - This would mean that L2 has a modified entry that L1 has evicted. Since no other caches have requested the data, L2 has not flushed it to DRAM yet. TODO: Confirm that L1 write back on eviction works this way, versus writing all the way out to DRAM.
+         - Send data to L1 (SENDLINE)
+     * If state is Exclusive:
+         - Update state to M
+         - Send data to L1 (SENDLINE)
+     * If state is Shared:
+         - Perform `BusOperation(INVALIDATE, Address, SnoopResult);`
+             * Shouldn't need to `GetSnoopResult` here because if the line is in the shared state, there are no other actions (e.g. flush) for other cases to take besides invalidate.
+         - Update state to M
+         - Send data to L1 (SENDLINE)
+     * Update PLRU access pattern
+     * Return from operation
+3. **Cache Miss Case**
+   - If line doesn't exist in LLC:
+     * Increment miss counter
+     * Increment write counter
+     * Perform `BusOperation(RWIM, Address, SnoopResult);`
+        * Get `GetSnoopResult()`
+            * If `HITM` wait for other cache to flush, then read in data
+            * If `HIT` or `NOHIT`, read in data (other caches have to invalidate their copies)
+        * Since L2 is write allocate, create a new entry and set it to state M
+     * Upon receiving data, check victim row (if any)
+        * If victim row modified, perform `BusOperation(WRITE, Address, SnoopResult)`
+        * If `Shared` or `Exclusive` NOP
+        * If Victim Row is in L1, send `message(EVICTLINE, Address);`
+     * Update PLRU access pattern? Does that happen on every new addition?
+     * Send requested data `message(SENDLINE, Address)`
+#### Test Cases Required:
+1. Write hit to Modified line
+1. Write hit to Exclusive line
+1. Write hit to Shared line
+1. Write miss with HIT / NOHIT from other cache
+1. Write miss with HITM from other cache
+1. Write miss causing clean eviction (i.e NOP)
+1. Write miss causing dirty eviction (i.e BusOp, I think ??)
+#### Sample Trace Sequence:
+- TODO: Create examples, this is just a simple example
+```
+# Test read operations
+8 0        # Clear cache
+0 1000     # Cold miss read
+3 1000     # Another processor reads (makes Shared)
+0 1000     # Read to Shared line
+0 2000     # Read causing potential eviction
+9 0        # Verify final state
+
 ### Command 2 - Read request from L1 instruction cache 
 ### Command 3 - Snooped read request 
+This is a snooped bus operation from other caches.
+
+Simulation Flow:
+
+    Address Lookup
+        Calculate set index from address
+        Search all ways in the set for matching tag
+
+    Cache Hit Case
+        If line exists in LLC:
+            Check MESI state of line
+            If state is Modified:
+                PutSnoopResult(Address, HITM)
+                BusOperation(WRITE, Address)
+                Update state to S
+            If state is Exclusive:
+                PutSnoopResult(Address, HIT)
+                Update state to S
+            If state is Shared:
+                PutSnoopResult(Address, HIT)
+            Return from operation
+
+    Cache Miss Case
+        If line doesn't exist in LLC:
+            PutSnoopResult(Address, NOHIT)
+
+Test Cases Required:
+
+    Hit to Modified line
+    Hit to Exclusive line
+    Hit to Shared line
+    Miss
+
+Trace Sequences:
+
+1. Hit to Modified line
+```bash
+# Test read operations
+8 0        # Clear cache
+1 1000     # Write misses in L1 but allocates modified line in L2
+3 1000     # Another LLC reads
+9 0        # Verify final state
+```
+Besides verifying that final state in L2 is S for address 1000, need to confirm that PutSnoopResult was called with HITM and that BusOperation with WRITE action was called.
+
+2. Hit to Exclusive line
+```bash
+# Test read operations
+8 0        # Clear cache
+0 1000     # Read misses in L1 but allocates Exclusive line in L2
+3 1000     # Another LLC reads
+9 0        # Verify final state
+```
+Besides verifying that final state in L2 is S for address 1000, need to confirm that PutSnoopResult was called with HIT.
+
+3. Hit to Shared line
+```bash
+# Test read operations
+8 0        # Clear cache
+3 1000     # Another LLC reads
+0 1000     # Read misses in L1 but allocates Shared line in L2
+3 1000     # Another LLC reads
+9 0        # Verify final state
+```
+Besides verifying that final state in L2 is S for address 1000, need to confirm that PutSnoopResult was called with HIT.
+
+4. Miss
+```bash
+# Test read operations
+8 0        # Clear cache
+3 1000     # Another LLC reads
+9 0        # Verify final state
+```
+Confirm that PutSnoopResult was called with NOHIT.
 ### Command 4 - Snooped write request 
 ### Command 5 - Snooped read with intent to modify (RWIM) 
 **Simulation Flow:** 
@@ -190,5 +321,73 @@ This is a processor side request from the L1 data cache (i.e. Misses in L1).
 
 
 ### Command 6 - Snooped invalidate command 
+This is a snooping operation detecting an invalidate command on the bus
+
+*NOTE: this section could change as we decide how to handle inclusivity
+
+Simulation Flow:
+
+    Address Lookup
+        Calculate set index from address
+        Search all ways in the set for matching tag
+
+    Cache Hit Case
+        If line exists in LLC:
+            Check MESI state of line
+            If MESI state is SHARED set MESI state to INVALID
+            Else if MESI state is not SHARED, NOP
+            Return from operation
+
+    Cache Miss Case
+        If line doesn't exist in LLC:
+            NOP
+
+Test Cases Required:
+
+    Send 6 trace for address of line known to be in LLC with current state of SHARED
+        Confirm state changes to INVALID
+    Send 6 trace for address of line known to be in LLC with current state of INVALID
+        Confirm state remains INVALID
+    Send 6 trace for address of line known to be in LLC with current state of EXCLUSIVE
+        Confirm state remains EXCLUSIVE
+    Send 6 trace for address of line known to be in LLC with current state of MODIFIED
+        Confirm state remains MODIFIED
+    Send 6 trace for address known not to be in LLC
+        Confirm no change of any MESI states (i.e. no addressing error)
+
+Related follow-up testing:
+
+    Test cache/bus operations such that states changed in tests above
+    change to another state when appropriate
+
 ### Command 8 - Clear cache and reset all state 
+This is a control operation to reset the simulator
+
+Simulation Flow:
+
+    Reset
+        Clear the cache by deallocating all ways
+        By default this resets all states
+
+Test Cases Required:
+
+    Send 8 trace (address irrelevant)
+        Confirm all ways deallocated (could use some debugging logic or send test requests)
+
 ### Command 9 - Print cache contents 
+Command 9 - print contents and state of each valid cache
+
+This is a control operation to dump contents of valid cache lines
+
+Simulation Flow:
+
+    Output
+        Search LLC for all lines with a valid state (!INVALID)
+        Print set, tag, PLRU status, and MESI state for each line
+
+Test Cases Required:
+
+    Send 9 trace (address irrelevant)
+        Confirm number of cache lines printed matches number with valid state
+        Confirm no cachelines with INVALID state are printed
+        Parse output to confirm it matches cache line contents
