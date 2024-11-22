@@ -3,12 +3,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from common.constants import TraceCommand
-from config.project_config import (
-    DATA_DIRECTORY,
-    DEFAULT_TRACE_FILE,
-    ROOT_DIR,
-    config,
-)
+from config.project_config import DATA_DIRECTORY, DEFAULT_TRACE_FILE, ROOT_DIR, config
 
 
 class TraceFileParser:

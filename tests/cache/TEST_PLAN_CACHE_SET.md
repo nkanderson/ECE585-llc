@@ -7,8 +7,12 @@
 
 ## Running Tests
 ```bash
-python -m unittest tests.cache.tests_cache_set -v
+╭─  Linux 11:23 ~/S/P/ECE585-llc 
+│ on  feature/cache-class [!?] 🐍 v3.12.7 
+╰─❯ PYTHONPATH=./src python -m unittest tests.cache.test_cache_set -v
 ```
+
+
 
 ## Test Cases and Results
 
@@ -76,6 +80,29 @@ python -m unittest tests.cache.tests_cache_set -v
      - Expected PLRU state
 * Status: ✅ PASS
 
+#### 4.4 Print Valid Cache Lines (test_print_set)
+* Purpose: Verify print method only prints valid lines, skips invalid ones
+* Test Sequence: 
+  1. Load CacheSet with Valid and Invalid Lines
+  2. Print CacheSet and perform visual analysis on STDOUT
+* Status: ✅ PASS
+
+#### 4.5 Perform Linear Search of Cache Set (find_way_by_tag)
+* Purpose: Verify CacheSet way index can be found by tag bits. This is helpful using the getter and setter methods of the MESI bits
+* Test Sequence: 
+  1. Load CacheSet with lines
+  2. Search for those lines by tag 
+  3. Confirm returned index matches expected result
+* Status: ✅ PASS
+
+#### 4.6 Test getter and setter of MESI Descriptor (test_mesi_state_descriptor)
+* Purpose: Verify that getter and setter method provide controlled access to cache line attributes
+* Test Sequence: 
+ 1. Set MESI Bits with setter method
+ 2. Get MESI Bits with getter method
+ 3. Assert MESI Bits equal expected result
+* Status: ✅ PASS
+
 ## Test Coverage Summary
 - Total Tests: 7
 - Passed: 7
@@ -89,6 +116,7 @@ python -m unittest tests.cache.tests_cache_set -v
 4. ✅ Cache operation functionality
 5. ✅ Replacement policy correctness
 6. ✅ Error handling
+7. ✅ MESI Getter and Setter Methods
 
 ## Notes
 - All PLRU state transitions are verified using binary pattern matching

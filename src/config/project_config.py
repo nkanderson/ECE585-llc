@@ -9,8 +9,8 @@ import argparse
 from pathlib import Path
 
 from common.constants import LogLevel
-from utils.cache_logger import CacheLogger
 from config.cache_config import CacheConfig
+from utils.cache_logger import CacheLogger
 
 ROOT_DIR = Path(__file__).parents[1]
 
@@ -113,7 +113,10 @@ class Config:
         parser.add_argument(
             "-d", "--debug", action="store_true", help="Enable debug output"
         )
-        return parser.parse_args()
+        # Only parse known arguments to avoid conflicts with other CLI arguments
+        args, _ = parser.parse_known_args()
+
+        return args
 
 
 # Initialize a global config instance

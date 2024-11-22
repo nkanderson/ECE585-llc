@@ -1,7 +1,7 @@
 import unittest
 
 from cache.cache_set import CacheSetPLRUMESI
-
+from common.constants import MESIState
 
 class TestCacheSet(unittest.TestCase):
     """Unit tests for CacheSet implementation"""
@@ -17,9 +17,10 @@ class TestCacheSet(unittest.TestCase):
         for ways in valid_ways:
             with self.subTest(ways=ways):
                 cache_set = CacheSetPLRUMESI(num_ways=ways)
+                # Confirms number of n-ways set associativity
                 self.assertEqual(cache_set.associativity, ways)
 
-        # Invalid cases
+        # Invalid cases, confirms proper exceptions are raised
         with self.assertRaises(TypeError):
             CacheSetPLRUMESI(num_ways=2.5)
         with self.assertRaises(TypeError):
@@ -46,26 +47,26 @@ class TestCacheSet(unittest.TestCase):
     def test_read_operations(self):
         """Test cache read operations"""
         # Read miss on empty cache
-        self.assertFalse(self.cache_set.read(0x1234))
+        self.assertFalse(self.cache_set.pr_read(0x1234))
 
         # Allocate line and verify read hit
         self.cache_set.allocate(0x1234)
-        self.assertTrue(self.cache_set.read(0x1234))
+        self.assertTrue(self.cache_set.pr_read(0x1234))
 
         # Read miss on different tag
-        self.assertFalse(self.cache_set.read(0x5678))
+        self.assertFalse(self.cache_set.pr_read(0x5678))
 
     def test_write_operations(self):
         """Test cache write operations"""
         # Write miss on empty cache
-        self.assertFalse(self.cache_set.write(0x1234))
+        self.assertFalse(self.cache_set.pr_write(0x1234))
 
         # Allocate line and verify write hit
         self.cache_set.allocate(0x1234)
-        self.assertTrue(self.cache_set.write(0x1234))
+        self.assertTrue(self.cache_set.pr_write(0x1234))
 
         # Write miss on different tag
-        self.assertFalse(self.cache_set.write(0x5678))
+        self.assertFalse(self.cache_set.pr_write(0x5678))
 
     def test_plru_update(self):
         """Test PLRU bit updates after access (basic test)
@@ -150,7 +151,7 @@ class TestCacheSet(unittest.TestCase):
                     (12, 0b001_1111_1011_1111),  # After way 12
                     (13, 0b011_1111_1011_1111),  # After way 13
                     (14, 0b011_1111_1111_1111),  # After way 14
-                    (15, 0b111_1111_1111_1111),  # After way 15
+                    (15, 0b111_1111_1111_1111),  # After way 15 (last way, set now full)
                     (8, 0b111_0111_1101_1011),  # After way 8
                     (2, 0b111_0110_1101_1000),  # After way 2
                 ],
@@ -225,8 +226,8 @@ class TestCacheSet(unittest.TestCase):
                 self.assertIsNone(victim_line)  # No victims during initial fill
 
         # Access way 8 and 2 to match the PLRU pattern
-        self.assertTrue(self.cache_set.read(0x8))  # Access way 8
-        self.assertTrue(self.cache_set.read(0x2))  # Access way 2
+        self.assertTrue(self.cache_set.pr_read(0x8))  # Access way 8
+        self.assertTrue(self.cache_set.pr_read(0x2))  # Access way 2
 
         # Now allocate a new line - should evict way 12
         victim_line, way = self.cache_set.allocate(0xAAAA)
@@ -242,6 +243,75 @@ class TestCacheSet(unittest.TestCase):
         self.assertIsNotNone(victim_line)  # Should have a victim
         self.assertEqual(victim_line.tag, 0xC)  # Victim should have tag 0xC
 
+    def test_print_set(self):
+        """Test printing of valid lines in the set"""
+        # Create a fresh cache set instance specifically for this test
+        cache_set = CacheSetPLRUMESI(num_ways=16)
+
+        print("\nTesting empty set, should be no output:")
+        cache_set.print_set()  # Should print nothing for empty set
+
+        print("\nTesting set with valid lines:")
+        cache_set.allocate(0x1234, MESIState.MODIFIED)
+        cache_set.allocate(0x5678, MESIState.SHARED)
+        cache_set.allocate(0x9ABC, MESIState.EXCLUSIVE)
+        cache_set.allocate(0xDEF0, MESIState.INVALID)
+        cache_set.print_set()  # Should print the valid lines
+
+    def test_find_way_by_tag(self):
+        """Test finding way index by tag"""
+        # Test empty set first
+        self.assertIsNone(self.cache_set.find_way_by_tag(0x1234))
+
+        # Set up test cases
+        test_lines = [
+            (0x1234, MESIState.MODIFIED, 0),    # Way 0
+            (0x5678, MESIState.EXCLUSIVE, 1),   # Way 1
+            (0xABCD, MESIState.SHARED, 2),      # Way 2
+            (0xDEAD, MESIState.INVALID, 3),     # Way 3 (invalid)
+        ]
+
+        # Allocate test lines
+        for tag, state, expected_way in test_lines:
+            victim_line, way = self.cache_set.allocate(tag, state)
+            self.assertEqual(way, expected_way)
+
+        # Test cases
+        test_cases = [
+            (0x1234, 0),        # Should find in way 0
+            (0x5678, 1),        # Should find in way 1
+            (0xABCD, 2),        # Should find in way 2
+            (0xDEAD, None),     # Should not find invalid line
+            (0xBEEF, None),     # Should not find non-existent tag
+        ]
+
+        # Run test cases
+        for tag, expected_way in test_cases:
+            with self.subTest(tag=hex(tag)):
+                result = self.cache_set.find_way_by_tag(tag)
+                self.assertEqual(
+                    result,
+                    expected_way,
+                    f"For tag {hex(tag)}: expected way {expected_way}, got {result}"
+                )
+
+    def test_mesi_state_descriptor(self): 
+            # Create a fresh cache set
+        cache_set = CacheSetPLRUMESI(num_ways=4)
+        
+        # Allocate a line in EXCLUSIVE state
+        cache_set.allocate(0x1234, state=MESIState.EXCLUSIVE)
+        
+        # Test getting state
+        self.assertEqual(cache_set.mesi_state[0], MESIState.EXCLUSIVE)
+        
+        # Test setting state
+        cache_set.mesi_state[0] = MESIState.MODIFIED  # EXCLUSIVE -> MODIFIED ok
+        self.assertEqual(cache_set.mesi_state[0], MESIState.MODIFIED)
+        
+        # Test invalid way index
+        with self.assertRaises(IndexError):
+            _ = cache_set.mesi_state[4]  # Way 4 doesn't exist in 4-way cache
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

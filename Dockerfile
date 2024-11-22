@@ -11,6 +11,7 @@ ENV CACHE_CAPACITY_MB=16
 ENV CACHE_LINE_SIZE_B=64
 ENV CACHE_ASSOCIATIVITY=16
 ENV CACHE_PROTOCOL=MESI
+ENV ADDRESS_SIZE=32
 
 # Security updates, run as root:
 RUN apt-get update && apt-get -y upgrade
