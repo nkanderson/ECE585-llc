@@ -253,7 +253,7 @@ class TestCacheSet(unittest.TestCase):
 
         print("\nTesting set with valid lines:")
         cache_set.allocate(0x1234, MESIState.MODIFIED)
-        cache_set.allocate(0x5678, MESIState.SHARED, in_l1=True)
+        cache_set.allocate(0x5678, MESIState.SHARED)
         cache_set.allocate(0x9ABC, MESIState.EXCLUSIVE)
         cache_set.allocate(0xDEF0, MESIState.INVALID)
         cache_set.print_set()  # Should print the valid lines
@@ -306,13 +306,9 @@ class TestCacheSet(unittest.TestCase):
         # Test getting state
         self.assertEqual(cache_set.mesi_state[0], MESIState.EXCLUSIVE)
         
-        # Test valid state transitions
+        # Test setting state
         cache_set.mesi_state[0] = MESIState.MODIFIED  # EXCLUSIVE -> MODIFIED ok
         self.assertEqual(cache_set.mesi_state[0], MESIState.MODIFIED)
-        
-        # Test invalid state transition
-        with self.assertRaises(ValueError):
-            cache_set.mesi_state[0] = MESIState.EXCLUSIVE  # MODIFIED -> EXCLUSIVE not allowed
         
         # Test invalid way index
         with self.assertRaises(IndexError):

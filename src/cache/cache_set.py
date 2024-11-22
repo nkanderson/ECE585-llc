@@ -64,22 +64,17 @@ from common.constants import MESIState
 
 class MESIStateDescriptor:
     """
-    Descriptor that provides (property-like) controlled access to MESI state of cache lines with state transition
-    validation.
-
+    Descriptor that provides (property-like) controlled access to MESI state of cache lines.
     This descriptor implements the Python descriptor protocol to provide a simple interface
     for accessing and modifying MESI states of cache lines within a cache set. It's used instead
     of traditional properties because it enables array-like indexing syntax for accessing specific
     cache ways.
-
     Usage:
         class CacheSetPLRUMESI:
             mesi_state = MESIStateDescriptor()
-
         # Getting state
         state = cache_set.mesi_state[way_index] # Returns MESIState enum
-
-        # Setting state (with automatic transition validation)
+        # Setting state
         cache_set.mesi_state[way_index] = MESIState.MODIFIED
     """
 
@@ -92,35 +87,9 @@ class MESIStateDescriptor:
                 return obj.ways[way_index].mesi_state
 
             def __setitem__(self_, way_index: int, state: MESIState):
-                """Set MESI state for a specific way with transition validation"""
+                """Set MESI state for a specific way"""
                 if way_index < 0 or way_index >= obj.num_ways:
                     raise IndexError(f"Way index {way_index} out of range")
-
-                current_state = obj.ways[way_index].mesi_state
-                valid_transitions = {
-                    MESIState.MODIFIED: {
-                        MESIState.MODIFIED,
-                        MESIState.SHARED,
-                        MESIState.INVALID,
-                    },
-                    MESIState.EXCLUSIVE: {
-                        MESIState.MODIFIED,
-                        MESIState.SHARED,
-                        MESIState.INVALID,
-                    },
-                    MESIState.SHARED: {MESIState.MODIFIED, MESIState.INVALID},
-                    MESIState.INVALID: {
-                        MESIState.MODIFIED,
-                        MESIState.EXCLUSIVE,
-                        MESIState.SHARED,
-                    },
-                }
-
-                if state not in valid_transitions[current_state]:
-                    raise ValueError(
-                        f"Invalid state transition from {current_state.name} to {state.name}"
-                    )
-
                 obj.ways[way_index].mesi_state = state
 
         return StateAccessor()
@@ -134,7 +103,6 @@ class CacheLine:
 
     tag: int = 0  # Tag value for the line
     mesi_state: MESIState = MESIState.INVALID
-    in_l1: bool = False  # For cache coherency
 
     def is_invalid(self) -> bool:
         """Check if line is in Invalid state"""
@@ -156,8 +124,7 @@ class CacheLine:
         """String representation of the cache line"""
         return (
             f"Tag={hex(self.tag) if self.tag is not None else 'None'}, "
-            f"State={self.mesi_state.name}, "
-            f"In L1={self.in_l1}"
+            f"State={self.mesi_state.name}. "
         )
 
 
@@ -322,7 +289,7 @@ class CacheSetPLRUMESI:
         return False  # Miss, TODO: Implement write allocate logic, might be done by controller
 
     def allocate(
-        self, tag: int, state: MESIState = MESIState.EXCLUSIVE, in_l1: bool = False
+        self, tag: int, state: MESIState = MESIState.EXCLUSIVE
     ) -> Tuple[Optional[CacheLine], int]:
         """
         Allocate a new cache line. First searches for invalid lines
@@ -344,7 +311,6 @@ class CacheSetPLRUMESI:
                 # Found an invalid line, use it
                 line.tag = tag
                 line.mesi_state = state
-                line.in_l1 = in_l1  # TODO: Add inclusivity handling in parent cache
                 self.__update_plru(way_index)
                 return None, way_index
         # No invalid lines found, use PLRU to select victim
@@ -354,12 +320,10 @@ class CacheSetPLRUMESI:
         victim_info = CacheLine(
             tag=victim_line.tag,
             mesi_state=victim_line.mesi_state,
-            in_l1=victim_line.in_l1,
         )
         # Set up new line
         victim_line.tag = tag
         victim_line.mesi_state = state
-        victim_line.in_l1 = False
         # Update PLRU based on new line access
         self.__update_plru(victim_way)
         return victim_info, victim_way
@@ -371,19 +335,15 @@ class CacheSetPLRUMESI:
 
         print(
             f"\nPLRU State Bits: {self.state:b}"
-            "\n----------------------------------"
-            "\nWay  | Tag      | State    | In L1"
-            "\n----------------------------------"
+            "\n-----------------------------"
+            "\nWay  | Tag      | MESI State|"
+            "\n-----------------------------"
         )
-        line_format = "{:3d}  | 0x{:06x} | {:9s} | {}"
+        line_format = "{:3d}  | 0x{:06x} | {:9s} |"
 
         for way_index, line in enumerate(self.ways):
             if not line.is_invalid():
-                print(
-                    line_format.format(
-                        way_index, line.tag, line.mesi_state.name, line.in_l1
-                    )
-                )
+                print(line_format.format(way_index, line.tag, line.mesi_state.name))
 
     @property
     def associativity(self) -> int:
