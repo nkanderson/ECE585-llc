@@ -204,8 +204,14 @@ This is a processor side request from the L1 data cache (i.e. Misses in L1).
 0 1000     # Read to Shared line
 0 2000     # Read causing potential eviction
 9 0        # Verify final state
+```
 
-### Command 2 - Read request from L1 instruction cache 
+### Command 2 - Read request from L1 instruction cache
+
+The LLC is unified, so this command should be identical to command 0 above, which handles a read request from the L1 *data* cache (L1 is a split cache). We should follow the same test plan to test all the cases identified for command 0 when testing command 2.
+
+If we add load testing for specific traffic patterns, we may consider including a higher ratio of command 2 as compared to command 0, in order to simulate instruction retrieval. For example, we could consider a pattern where there are approximately 4 instruction reads for every 1 data read.
+
 ### Command 3 - Snooped read request 
 This is a snooped bus operation from other caches.
 
@@ -281,7 +287,13 @@ Besides verifying that final state in L2 is S for address 1000, need to confirm 
 9 0        # Verify final state
 ```
 Confirm that PutSnoopResult was called with NOHIT.
-### Command 4 - Snooped write request 
+
+### Command 4 - Snooped write request
+
+This command communicates that a cache is actively writing its data back to DRAM. This results from a cache with a line in the Modified state either evicting the line due to a collision miss, or responding to another cache's read or write request for the line by writing it back to DRAM. The cache holding the modified line will then downgrade the state to Shared (if requesting cache is reading) or Invalid (if requesting cache is writing).
+
+This command should be a no-op, assuming that we've correctly invalidated any cache lines matching those snooped in commands 5 or 6.
+
 ### Command 5 - Snooped read with intent to modify (RWIM) 
 **Simulation Flow:** 
 1. **Address Lookup**
