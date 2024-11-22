@@ -47,7 +47,7 @@ class CacheConfig:
         protocol = os.getenv("CACHE_PROTOCOL")
         if protocol is None:
             raise EnvironmentError("CACHE_PROTOCOL not set in .env file")
-        
+
         address_size = os.getenv("ADDRESS_SIZE")
         if address_size is None:
             raise EnvironmentError("ADDRESS_SIZE not set in .env file")
@@ -58,7 +58,7 @@ class CacheConfig:
         self.line_size = int(line_size)
         self.associativity = int(associativity)
         self.protocol = protocol
-        self.address_size = int(address_size) # In bits
+        self.address_size = int(address_size)  # In bits
 
 
 """

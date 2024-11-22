@@ -45,19 +45,16 @@ class TestCache(unittest.TestCase):
         """Test processor read operation and respective statistics tracking"""
         test_addresses = [0x1234_5678, 0x8765_4321, 0x1111_1111]
         accesses = 25
-        expected_misses = 0
-        expected_hits = 0
+        expected_misses = 3
+        expected_hits = 22
 
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
             hit = self.cache.pr_read(test_addresses[i % 3])
             if not hit:
-                expected_misses += 1
                 # Fill the line after miss
                 self.cache.cache_line_fill(test_addresses[i % 3], MESIState.EXCLUSIVE)
-            else:
-                expected_hits += 1
-
+               
         self.assertEqual(self.cache.statistics.cache_writes, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
         self.assertEqual(self.cache.statistics.cache_hits, expected_hits)
@@ -67,19 +64,16 @@ class TestCache(unittest.TestCase):
         """Test processor write operation with respective statistics tracking"""
         test_addresses = [0x1234_5678, 0x8765_4321, 0x1111_1111]
         accesses = 25
-        expected_misses = 0
-        expected_hits = 0
+        expected_misses = 3
+        expected_hits = 22
 
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
             hit = self.cache.pr_write(test_addresses[i % 3])
             if not hit:
-                expected_misses += 1
                 # Fill the line after miss
                 self.cache.cache_line_fill(test_addresses[i % 3], MESIState.EXCLUSIVE)
-            else:
-                expected_hits += 1
-
+            
         self.assertEqual(self.cache.statistics.cache_reads, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
         self.assertEqual(self.cache.statistics.cache_hits, expected_hits)
@@ -106,30 +100,24 @@ class TestCache(unittest.TestCase):
         non_existent_addr = 0x5555_5555
         self.assertFalse(self.cache.set_line_state(non_existent_addr, MESIState.MODIFIED))
     
-    def test_snoop_line(self):
-        """Test snoop line lookup functionality"""
+    def test_lookup_line(self):
+        """Test line lookup functionality"""
         addr = 0x1234_5678
         
         # Initially line shouldn't be present
-        self.assertIsNone(self.cache.snoop_line(addr))
+        self.assertIsNone(self.cache.lookup_line(addr))
         
         # Add line in Modified state
         self.cache.pr_write(addr)
         self.cache.cache_line_fill(addr, MESIState.MODIFIED)
         
-        # Set L1 inclusion status
-        addr_fields = self.cache._Cache__decompose_address(addr)
-        cache_set = self.cache.sets[addr_fields.index]
-        way_index = cache_set.find_way_by_tag(addr_fields.tag)
-        cache_set.ways[way_index].in_l1 = True
         
-        # Check snoop results
-        line = self.cache.snoop_line(addr)
+        # Check lookup results
+        line = self.cache.lookup_line(addr)
         self.assertIsNotNone(line)
         self.assertEqual(line.mesi_state, MESIState.MODIFIED)
-        self.assertTrue(line.in_l1)
         
-        # Verify snoop doesn't affect cache state
+        # Verify lookup doesn't affect cache state
         self.assertEqual(
             self.cache.get_line_state(addr),
             MESIState.MODIFIED
@@ -143,23 +131,24 @@ class TestCache(unittest.TestCase):
         )
     
     def test_cache_line_fill(self):
-        """Test cache line fill operation"""
+        """Test cache line fill operations"""
         addr = 0x1234_5678
         
         # Test initial fill
-        self.assertIsNone(self.cache.snoop_line(addr))  # Verify line not present
+        self.assertIsNone(self.cache.lookup_line(addr))  # Verify line not present
         victim = self.cache.cache_line_fill(addr, MESIState.EXCLUSIVE)
         self.assertIsNone(victim)  # No victim on initial fill
         
         # Verify line was properly filled
-        line = self.cache.snoop_line(addr)
+        line = self.cache.lookup_line(addr)
         self.assertIsNotNone(line)
         self.assertEqual(line.mesi_state, MESIState.EXCLUSIVE)
         
-        # Fill same line with different state
+        # Fill same line with a different state which is intended to throw a warning
+        # State will not be modified and a warning will be printed
         victim = self.cache.cache_line_fill(addr, MESIState.MODIFIED)
         self.assertIsNone(victim)  # No victim when updating existing line
-        line = self.cache.snoop_line(addr)
+        line = self.cache.lookup_line(addr)
         self.assertEqual(line.mesi_state, MESIState.EXCLUSIVE)
         
         # Test replacement by filling entire set
@@ -189,7 +178,7 @@ class TestCache(unittest.TestCase):
         self.assertIsInstance(victim, CacheLine)
         
         # Verify new line is present
-        line = self.cache.snoop_line(replacement_addr)
+        line = self.cache.lookup_line(replacement_addr)
         self.assertIsNotNone(line)
         self.assertEqual(line.mesi_state, MESIState.EXCLUSIVE)
 
@@ -204,14 +193,14 @@ class TestCache(unittest.TestCase):
         
         # Verify lines are present
         for addr in addresses:
-            self.assertIsNotNone(self.cache.snoop_line(addr))
+            self.assertIsNotNone(self.cache.lookup_line(addr))
         
         # Clear the cache
         self.cache.clear_cache()
         
         # Verify all lines are gone
         for addr in addresses:
-            self.assertIsNone(self.cache.snoop_line(addr))
+            self.assertIsNone(self.cache.lookup_line(addr))
         
     def test_print_cache(self):
         """Test printing cache contents"""

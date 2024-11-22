@@ -273,9 +273,8 @@ class TestCacheSet(unittest.TestCase):
 
         # Allocate test lines
         for tag, state, expected_way in test_lines:
-            if state != MESIState.INVALID:
-                victim_line, way = self.cache_set.allocate(tag, state)
-                self.assertEqual(way, expected_way)
+            victim_line, way = self.cache_set.allocate(tag, state)
+            self.assertEqual(way, expected_way)
 
         # Test cases
         test_cases = [

@@ -4,6 +4,7 @@ from typing import List, NamedTuple, Optional
 
 from cache.cache_set import CacheLine, CacheSetPLRUMESI
 from common.constants import LogLevel, MESIState
+from config.cache_config import CacheConfig
 from config.project_config import config  # Import global config object
 from utils.statistics import Statistics
 
@@ -30,14 +31,16 @@ class Cache:
         - Each line maintains MESI coherence state and L1 inclusion status
     """
 
-    def __init__(self):
+    def __init__(self, cache_config: Optional[CacheConfig] = None):
         """
         Initialize cache configuration
         Args:
             config: Optional CacheConfig instance. If None, creates new instance.
         """
-        # Load configuration
-        self.config = config.get_cache_config()
+        # Load configuration from optional argument or global config
+        self.config = (
+            cache_config if cache_config is not None else config.get_cache_config()
+        )
         # Load Logger
         self.logger = config.get_logger()
         self.statistics = Statistics()
@@ -46,6 +49,7 @@ class Cache:
         self.line_size = self.config.line_size
         self.associativity = self.config.associativity
         self.total_capacity = self.config.total_capacity  # In Bytes
+        self.address_size = self.config.address_size  # In bits (defult 32)
 
         # Calculate number of sets
         self.num_sets = self.total_capacity // (self.line_size * self.associativity)
@@ -59,13 +63,10 @@ class Cache:
         # Calculate address decomposition bits (assume 32 bit address)
         self.byte_select_bits = int(math.log2(self.line_size))
         self.index_bits = int(math.log2(self.num_sets))
-        self.tag_bits = 32 - self.index_bits - self.byte_select_bits
+        self.tag_bits = self.address_size - self.index_bits - self.byte_select_bits
 
         # Initialize list with None placeholders for sets
         self.sets: List[Optional[CacheSetPLRUMESI]] = [None] * self.num_sets
-
-        # TODO: Not sure this is needed. Track number of allocated sets
-        self.allocated_sets = 0
 
         # Dump cache configuration to logger in debug mode
         self.logger.log(LogLevel.DEBUG, message=self.__config_str)
@@ -92,21 +93,20 @@ class Cache:
         Processor side read request to the cache
 
         Note: This method has side effects and should no be used for Cache Searches or Snoop
-        operations. Use snoop_line methods for those operations.
+        operations. Use lookup_line() methods for those operations.
         """
         self.statistics.record_read()
         # Decompose 32-bit address into tuple of tag, index, byte_select
         addr_fields = self.__decompose_address(address)
 
-        if self.sets[addr_fields.index] is None:
+        # Obtain cache set instance
+        cache_set = self.sets[addr_fields.index]
+        if cache_set is None:
             self.statistics.record_miss()
             # Allocate newly reference set
             self.sets[addr_fields.index] = self.__create_set()
-            return False  # MISS
+            return False
 
-        # Obtain cache set instance
-        cache_set = self.sets[addr_fields.index]
-        # Perform read search for tag in set
         is_hit = cache_set.pr_read(addr_fields.tag)
 
         if is_hit:  # HIT
@@ -144,8 +144,6 @@ class Cache:
         to be presented to the user. A cache fill would be followed by a processor read or write, and
         the MESI state should be set using the set_line_state method.
 
-        TODO: We may need to add inclusivity checks here, after all all cache
-        line fills would come from L1 Cache
 
         Args:
             address: Memory address to fill
@@ -169,7 +167,7 @@ class Cache:
             )
             self.sets[addr_fields.index] = self.__create_set()
 
-        existing_line = self.snoop_line(address)
+        existing_line = self.lookup_line(address)
         if existing_line is not None:
             warnings.warn(
                 f"Attempting to fill already existing line at address {hex(address)}."
@@ -184,17 +182,11 @@ class Cache:
         victim_line, _ = cache_set.allocate(addr_fields.tag, state)
         return victim_line
 
-    def snoop_line(self, address: int) -> Optional[CacheLine]:
+    def lookup_line(self, address: int) -> Optional[CacheLine]:
         """
-        Look up a cache line for snooping purposes. Returns the complete cache line
-        information if present, without modifying cache state or statistics.
-
-        This method is designed for coherence protocol handling, providing access
-        to MESI state and L1 inclusion information needed for snoop responses.
-
+        Look up a cache line and return a copy if present, without modifying cache state or statistics.
         Args:
             address: Memory address to check
-
         Returns:
             Optional[CacheLine]: Copy of the cache line if present, None if not cached
         """
@@ -210,7 +202,7 @@ class Cache:
         if way_index is not None:
             # Return a copy of the cache line to prevent accidental modifications
             line = cache_set.ways[way_index]
-            return CacheLine(tag=line.tag, mesi_state=line.mesi_state, in_l1=line.in_l1)
+            return CacheLine(tag=line.tag, mesi_state=line.mesi_state)
         return None
 
     def __create_set(self) -> CacheSetPLRUMESI:
@@ -274,14 +266,32 @@ class Cache:
     def clear_cache(self):
         """Clear all cache contents and reset statistics"""
         self.sets = [None] * self.num_sets
-        self.allocated_sets = 0
 
     def print_cache(self):
-        """Print cache contents of only valid lines"""
+        """Print cache contents of only valid lines using the logger"""
+        header_printed = False
+
         for index, cache_set in enumerate(self.sets):
             if cache_set is not None:
-                print(f"\nValid Lines in Set 0x{index:04x}")
-                self.sets[index].print_set()
+                # Get the formatted lines from print_set
+                valid_lines = cache_set.print_set()
+                if valid_lines:  # If there are valid lines to print
+                    if not header_printed:
+                        header = (
+                            "\n-----------------------------"
+                            "\nWay  | Tag      | MESI State|"
+                            "\n-----------------------------"
+                        )
+                        self.logger.log(LogLevel.SILENT, header)
+                        header_printed = True
+                    self.logger.log(
+                        LogLevel.SILENT, f"\nValid Lines in Set 0x{index:08x}"
+                    )
+                    self.logger.log(
+                        LogLevel.SILENT, f"PLRU State Bits: {cache_set.state:b}"
+                    )
+                    self.logger.log(LogLevel.SILENT, "-----------------------------")
+                    self.logger.log(LogLevel.SILENT, valid_lines)
 
     @property
     def __config_str(self) -> str:

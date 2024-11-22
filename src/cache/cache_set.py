@@ -333,17 +333,15 @@ class CacheSetPLRUMESI:
         if all(line.is_invalid() for line in self.ways):
             return  # Empty set
 
-        print(
-            f"\nPLRU State Bits: {self.state:b}"
-            "\n-----------------------------"
-            "\nWay  | Tag      | MESI State|"
-            "\n-----------------------------"
-        )
         line_format = "{:3d}  | 0x{:06x} | {:9s} |"
+        valid_lines = []
 
         for way_index, line in enumerate(self.ways):
             if not line.is_invalid():
-                print(line_format.format(way_index, line.tag, line.mesi_state.name))
+                valid_lines.append(
+                    line_format.format(way_index, line.tag, line.mesi_state.name)
+                )
+        return "\n".join(valid_lines)
 
     @property
     def associativity(self) -> int:
