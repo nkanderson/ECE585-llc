@@ -8,11 +8,21 @@ from utils.cache_logger import CacheLogger
 class BusInterface:
     """Handles all LLC-to-LLC bus operations and snoop results"""
 
+    _bus_instance = None
+
     def __init__(self, logger: Optional[CacheLogger] = None):
-        # FIXME: Need lazy initialization or some other solution to wait
-        # until config has intialized the logger
-        # self.logger = logger if logger is not None else config.get_logger()
-        self.logger = logger if logger is not None else CacheLogger(LogLevel.DEBUG)
+        self.logger = logger if logger is not None else config.get_logger()
+
+    @classmethod
+    def initialize(cls, logger: CacheLogger):
+        if cls._bus_instance is None:
+            cls._bus_instance = cls(logger)
+
+    @classmethod
+    def get_instance(cls):
+        if cls._bus_instance is None:
+            raise RuntimeError("BusInterface instance is not initialized")
+        return cls._bus_instance
 
     def bus_operation(self, bus_op: BusOp, address: int) -> SnoopResult:
         """Simulate a bus operation and get snoop results from other caches"""
@@ -50,16 +60,13 @@ class BusInterface:
         )
 
 
-_bus_interface = BusInterface()
-
-
 def bus_operation(bus_op: BusOp, address: int) -> SnoopResult:
-    return _bus_interface.bus_operation(bus_op, address)
+    return BusInterface.get_instance().bus_operation(bus_op, address)
 
 
 def get_snoop_result(address: int) -> SnoopResult:
-    return _bus_interface.get_snoop_result(address)
+    return BusInterface.get_instance().get_snoop_result(address)
 
 
 def put_snoop_result(address: int, snoop_result: SnoopResult) -> None:
-    _bus_interface.put_snoop_result(address, snoop_result)
+    BusInterface.get_instance().put_snoop_result(address, snoop_result)
