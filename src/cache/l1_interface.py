@@ -12,11 +12,14 @@ class L1Interface:
     """
 
     def __init__(self, logger: Optional[CacheLogger] = None):
-        self.logger = logger if logger is not None else config.get_logger()
+        # FIXME: Need lazy initialization or some other solution to wait
+        # until config has intialized the logger
+        # self.logger = logger if logger is not None else config.get_logger()
+        self.logger = logger if logger is not None else CacheLogger(LogLevel.DEBUG)
 
     def message_to_cache(self, message: CacheMessage, address: int) -> None:
         """Send control message to L1 cache"""
-        self.logger.log(LogLevel, f"L2: {message.name}, Address: {address}")
+        self.logger.log(LogLevel.DEBUG, f"L2: {message.name}, Address: {address}")
 
 
 _l1_interface = L1Interface()

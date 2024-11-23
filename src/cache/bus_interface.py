@@ -9,7 +9,10 @@ class BusInterface:
     """Handles all LLC-to-LLC bus operations and snoop results"""
 
     def __init__(self, logger: Optional[CacheLogger] = None):
-        self.logger = logger if logger is not None else config.get_logger()
+        # FIXME: Need lazy initialization or some other solution to wait
+        # until config has intialized the logger
+        # self.logger = logger if logger is not None else config.get_logger()
+        self.logger = logger if logger is not None else CacheLogger(LogLevel.DEBUG)
 
     def bus_operation(self, bus_op: BusOp, address: int) -> SnoopResult:
         """Simulate a bus operation and get snoop results from other caches"""

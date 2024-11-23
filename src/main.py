@@ -9,6 +9,7 @@ Description: This program simulates the behavior of a 16MB, 16-way set associati
 
 import sys
 
+from cache.cache import Cache
 from common.constants import LogLevel
 from config.project_config import config
 from utils.event_handler import handle_event
@@ -25,6 +26,8 @@ def main():
     logger = config.get_logger()
     args = config.get_args()
 
+    cache = Cache()
+
     try:
         with TraceFileParser(args.file) as parser:
             while True:
@@ -36,13 +39,8 @@ def main():
                     LogLevel.DEBUG,
                     f"\nOperation: {op.value} {op.name:20} Address: 0x{addr:08x}",
                 )
-                # TODO: Update Stats instance with these values, once we
-                # decide where that instance lives
-                stats_changes = handle_event(op.value)
-                logger.log(
-                    LogLevel.DEBUG,
-                    f"Updating stats with the following: {stats_changes}",
-                )
+                handle_event(cache, op.value, addr)
+
     # Log a meaningful message and re-raise error to exit the program
     # with a non-zero exit code
     except ValueError as e:
