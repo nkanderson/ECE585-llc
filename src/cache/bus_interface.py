@@ -16,7 +16,7 @@ class BusInterface:
         snoop_result = self.get_snoop_result(address)
         self.logger.log(
             LogLevel.NORMAL,
-            f"BusOp: {bus_op.name}, Address: {address}, Snoop Result: {snoop_result.name}",
+            f"BusOp: {bus_op.name}, Address: {address:08x}, Snoop Result: {snoop_result.name}",
         )
 
     def get_snoop_result(self, address: int) -> SnoopResult:
