@@ -2,10 +2,14 @@ import math
 import warnings
 from typing import List, NamedTuple, Optional
 
+from cache.bus_interface import BusInterface
 from cache.cache_set import CacheLine, CacheSetPLRUMESI
-from common.constants import LogLevel, MESIState
+from cache.l1_interface import L1Interface
+from cache.mesi_controller import MESICoherenceController
+from common.constants import BusOp, CacheMessage, LogLevel, MESIState, SnoopResult
 from config.cache_config import CacheConfig
 from config.project_config import config  # Import global config object
+from utils.cache_logger import CacheLogger
 from utils.statistics import Statistics
 
 
@@ -19,30 +23,47 @@ class AddressFields(NamedTuple):
 
 class Cache:
     """
-    Implementation of a set-associative cache with MESI protocol and PLRU replacement.
-    Sets are created lazily as they are accessed to optimize memory usage, but stored
-    in a list for direct indexed access.
+    Description:
+        Last Level Cache (LLC) class for use in a cache simulator
 
-    Architecture:
-        This class implements a multi-level cache hierarchy where:
-        - Cache sets are stored in a list but initialized as None
-        - Sets are created on-demand when first accessed
-        - Each set contains multiple ways (CacheLine instances)
-        - Each line maintains MESI coherence state and L1 inclusion status
+    Key Components:
+        - This cache implements a write-allocate, write-back policy
+        - 32-bit address decomposition into tag, index, and byte select fields
+        - Set associative organization with PLRU replacement
+        - MESI coherence protocol for multi-cache systems
+        - Lazy set allocation (sets created only when first accessed)
+        - Inclusion policy with L1 cache
+        - Statistics tracking for cache hits, misses, and evictions
+
+    Args:
+        cache_config: Optional CacheConfig instance. If None, creates new instance.
+        logger: Optional CacheLogger instance. If None, creates new instance.
+
+    Example Usage:
+        cache = Cache()
+        # In response to trace command 0 or 2
+        hit = cache.pr_read(0x1000)  # Processor read from address 0x1000
+        # In response to trace command 1
+        hit = cache.pr_write(0x2000) # Processor write to address 0x2000
+        # In response to trace commands 3-6
+        cache.handle_snoop(BusOp.READ, 0x1000)  # Process snoop from other cache
     """
 
-    def __init__(self, cache_config: Optional[CacheConfig] = None):
+    def __init__(
+        self,
+        cache_config: Optional[CacheConfig] = None,
+        logger: Optional[CacheLogger] = None,
+    ):
         """
-        Initialize cache configuration
-        Args:
-            config: Optional CacheConfig instance. If None, creates new instance.
+        Constructs a cache class based on the provided configuration and logger see config and logger modules
+        Default configurations is  64 MB, 64 B line size, 16-way associative, 32-bit address size
         """
         # Load configuration from optional argument or global config
         self.config = (
             cache_config if cache_config is not None else config.get_cache_config()
         )
-        # Load Logger
-        self.logger = config.get_logger()
+        # Load Logger from optional argument or global config
+        self.logger = logger if logger is not None else config.get_logger()
         self.statistics = Statistics()
 
         # Set cache parameters from config
@@ -53,6 +74,13 @@ class Cache:
 
         # Calculate number of sets
         self.num_sets = self.total_capacity // (self.line_size * self.associativity)
+
+        # Setup MESI Coherence Controller
+        self.bus = BusInterface(logger=self.logger)
+        self.l1 = L1Interface(logger=self.logger)
+        self.coherence_controller = MESICoherenceController(
+            bus_interface=self.bus, l1_interface=self.l1
+        )
 
         # Validate cache parameters
         if not math.log2(self.line_size).is_integer():
@@ -73,11 +101,11 @@ class Cache:
 
     def __decompose_address(self, address: int) -> AddressFields:
         """
-        Internal Method to address into tag, index and byte_select fields
+        Internal metho to break address into tag, index and byte_select fields
         Args:
             address: Full memory address
         Returns:
-            AddressFields NamedTuple containing decomposed fields
+            AddressFields(NamedTuple)
         """
         byte_select_mask = (1 << self.byte_select_bits) - 1
         index_mask = (1 << self.index_bits) - 1
@@ -89,61 +117,85 @@ class Cache:
         return AddressFields(tag=tag, index=index, byte_select=byte_select)
 
     def pr_read(self, address: int) -> bool:
-        """
-        Processor side read request to the cache
-
-        Note: This method has side effects and should no be used for Cache Searches or Snoop
-        operations. Use lookup_line() methods for those operations.
-        """
-        self.statistics.record_read()
-        # Decompose 32-bit address into tuple of tag, index, byte_select
-        addr_fields = self.__decompose_address(address)
-
-        # Obtain cache set instance
-        cache_set = self.sets[addr_fields.index]
-        if cache_set is None:
-            self.statistics.record_miss()
-            # Allocate newly reference set
-            self.sets[addr_fields.index] = self.__create_set()
-            return False
-
-        is_hit = cache_set.pr_read(addr_fields.tag)
-
-        if is_hit:  # HIT
-            self.statistics.record_hit()
-        else:  # MISS
-            self.statistics.record_miss()
-
-        return is_hit
+        """Processor side read request"""
+        return self.__processor_access(address, is_write=False)
 
     def pr_write(self, address: int) -> bool:
-        """Process side write request to the cache"""
-        self.statistics.record_write()
-        addr_fields = self.__decompose_address(address)
+        """Processor side write request"""
+        return self.__processor_access(address, is_write=True)
 
-        if self.sets[addr_fields.index] is None:
-            self.statistics.record_miss()
-            # Allocate newly reference set
-            self.sets[addr_fields.index] = self.__create_set()
-            return False  # MISS
+    def __processor_access(self, address: int, is_write: bool) -> bool:
+        """
+        Handle processor side cache access (read/write) in response to trace commands 0 and 1.
 
-        cache_set = self.sets[addr_fields.index]
-        is_hit = cache_set.pr_write(addr_fields.tag)
+        Note:
+            This method has side effects and should not be used for Cache Searches or Snoop
+            operations; use lookup_line() or handle_snoop() methods, respectively.
 
-        if is_hit:
-            self.statistics.record_hit()
-            return True  # HIT
+        Args:
+            address: Physical memory address to access
+            is_write: True for write access, False for read access
+
+        Side Effects:
+            - Updates cache statistics
+            - Handles cache misses and evictions
+            - Handles MESI state transitions
+            - Update PLRU bits on access
+
+        Returns:
+            bool: True if cache hit, False if miss
+        """
+        # Record statistics
+        if is_write:
+            self.statistics.record_write()
         else:
+            self.statistics.record_read()
+
+        addr_fields = self.__decompose_address(address)
+        cache_set = self.sets[addr_fields.index]
+
+        # Handle set allocation if needed
+        if cache_set is None:
             self.statistics.record_miss()
-            return False  # MISS
+            self.sets[addr_fields.index] = self.__create_set()
+            new_state = self.coherence_controller.handle_processor_request(
+                current_state=MESIState.INVALID,
+                address=address,
+                is_processor_write=is_write,
+            )
+            self.cache_line_fill(address, new_state)
+            return False
+
+        # Search set and handle hit/miss
+        way_index = cache_set.search_set(addr_fields.tag, update_plru=True)
+
+        if way_index is not None:  # HIT
+            current_state = cache_set.mesi_state[way_index]
+            new_state = self.coherence_controller.handle_processor_request(
+                current_state=current_state,
+                address=address,
+                is_processor_write=is_write,
+            )
+            cache_set.mesi_state[way_index] = new_state
+            self.statistics.record_hit()
+            return True
+
+        else:  # MISS
+            new_state = self.coherence_controller.handle_processor_request(
+                current_state=MESIState.INVALID,
+                address=address,
+                is_processor_write=is_write,
+            )
+            victim_line = self.cache_line_fill(address, new_state)
+            self.handle_victim_line(victim_line, address)
+            self.statistics.record_miss()
+            return False
 
     def cache_line_fill(self, address: int, state: MESIState) -> Optional[CacheLine]:
         """
         Fill a cache line with data and set MESI state. This would be called after a cache miss
         to fill the cache line with data. The method has run time warnings for invalid operations,
-        to be presented to the user. A cache fill would be followed by a processor read or write, and
-        the MESI state should be set using the set_line_state method.
-
+        to be presented to the user.
 
         Args:
             address: Memory address to fill
@@ -159,7 +211,8 @@ class Cache:
         """
         addr_fields = self.__decompose_address(address)
         # This should never be None, as we should have allocated the set on a miss
-        if self.sets[addr_fields.index] is None:
+        cache_set = self.sets[addr_fields.index]
+        if cache_set is None:
             warnings.warn(
                 f"Cache set {addr_fields.index} was not allocated during a miss."
                 "Creating set now...",
@@ -171,7 +224,7 @@ class Cache:
         if existing_line is not None:
             warnings.warn(
                 f"Attempting to fill already existing line at address {hex(address)}."
-                "Use set_line_state method to modify state if that is what you're trying to do."
+                "Is this a replacement, if so use cache_set.allocate() for proper replacement."
                 "Returning None...",
                 RuntimeWarning,
             )
@@ -181,6 +234,51 @@ class Cache:
         # Allocate returns (victim_line, way_index) tuple, but we only need the victim line
         victim_line, _ = cache_set.allocate(addr_fields.tag, state)
         return victim_line
+
+    def handle_snoop(self, bus_op: BusOp, address: int) -> None:
+        """
+        Handles operations for trace commands 3-6, which are snooped operations from other caches.
+
+        returns:
+            None
+        """
+        addr_fields = self.__decompose_address(address)
+
+        cache_set = self.sets[addr_fields.index]
+
+        if cache_set is None:
+            # No need to handle snoop if this cache doesn't have copy
+            self.bus_interface.put_snoop_result(address, SnoopResult.NOHIT)
+            return
+
+        way_index = cache_set.search_set(addr_fields.tag, update_plru=False)
+
+        if way_index is not None:
+            current_state = cache_set.mesi_state[way_index]
+            new_state = self.coherence_controller.handle_snoop(
+                current_state=current_state, bus_op=bus_op, address=address
+            )
+            cache_set.mesi_state[way_index] = new_state
+        else:
+            self.bus_interface.put_snoop_result(address, SnoopResult.NOHIT)
+
+    def handle_victim_line(
+        self, victim_line: Optional[CacheLine], address: int
+    ) -> None:
+        """
+        In the case of a cache line fill, a victim row may be returned if the set is full.
+        This method handles the victim line by ensuring that modified data is written back to memory, and
+        L1 inclusion is maintained.
+        """
+        if victim_line is None:  # No victim line to handle
+            return
+
+        if victim_line.is_modified():
+            # Get most recent data from l1
+            self.l1.message_to_cache(CacheMessage.GETLINE, address)
+            self.l1.message_to_cache(CacheMessage.EVICTLINE, address)
+            # Perform writeback for modified data
+            self.bus.bus_operation(BusOp.WRITE, address)
 
     def lookup_line(self, address: int) -> Optional[CacheLine]:
         """
@@ -197,7 +295,7 @@ class Cache:
             return None  # No need to allocate yet, not needed by this Cache
 
         cache_set = self.sets[addr_fields.index]
-        way_index = cache_set.find_way_by_tag(addr_fields.tag)
+        way_index = cache_set.search_set(addr_fields.tag, update_plru=False)
 
         if way_index is not None:
             # Return a copy of the cache line to prevent accidental modifications
@@ -211,64 +309,14 @@ class Cache:
         """
         return CacheSetPLRUMESI(num_ways=self.associativity)
 
-    def get_line_state(self, address: int) -> Optional[MESIState]:
-        """
-        Get the MESI state of the cache line containing the address
-
-        Args:
-            address: Memory address to check
-        Returns:
-            MESIState if line exists, None if line not in cache
-        """
-        addr_fields = self.__decompose_address(address)
-
-        # Return None if set doesn't exist yet
-        if self.sets[addr_fields.index] is None:
-            return None
-
-        cache_set = self.sets[addr_fields.index]
-        way_index = cache_set.find_way_by_tag(addr_fields.tag)
-
-        if way_index is not None:
-            return cache_set.mesi_state[way_index]
-        return None
-
-    def set_line_state(self, address: int, state: MESIState) -> bool:
-        """
-        Setter method to modify the MESI state of a cache line
-
-        Args:
-            address: Memory address to modify
-            state: New MESI state to set
-        Returns:
-            True if line exists and state was set, False if line not in cache
-        Raises:
-            ValueError: If invalid state transition attempted
-        """
-        addr_fields = self.__decompose_address(address)
-
-        if self.sets[addr_fields.index] is None:
-            return False
-
-        cache_set = self.sets[addr_fields.index]
-        way_index = cache_set.find_way_by_tag(addr_fields.tag)
-
-        if way_index is not None:
-            try:
-                cache_set.mesi_state[way_index] = state
-                return True
-            except ValueError as e:
-                raise ValueError(
-                    f"Invalid state transition for address {hex(address)}: {e}"
-                )
-        return False
-
     def clear_cache(self):
-        """Clear all cache contents and reset statistics"""
+        """
+        Clear all cache contents and reset statistics, this is in response to trace command 8
+        """
         self.sets = [None] * self.num_sets
 
     def print_cache(self):
-        """Print cache contents of only valid lines using the logger"""
+        """Print cache contents of only valid lines using the logger, this is in response to trace command 9"""
         header_printed = False
 
         for index, cache_set in enumerate(self.sets):
