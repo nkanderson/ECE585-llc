@@ -1,8 +1,9 @@
-from common.constants import LogLevel
+from cache.cache import Cache
+from common.constants import LogLevel, MESIState
 from config.project_config import config
 
 
-def handle_event(event_opcode: int) -> dict[str, int]:
+def handle_event(event_opcode: int, addr: int, cache: type[Cache]) -> dict[str, int]:
     """
     Processes a cache event based on the provided opcode and
     returns cache statistics for this event.
@@ -37,6 +38,13 @@ def handle_event(event_opcode: int) -> dict[str, int]:
 
         # 2: read request from L1 instruction cache
         case 2:
+            hit = cache.pr_read(addr)
+            if hit:
+                # TODO: Send data to L1 via message(SENDLINE)
+                pass
+            else:
+                # TODO: Add logic to determine correct MESIState to use here
+                cache.cache_line_fill(addr, MESIState.EXCLUSIVE)
             logger.log(LogLevel.DEBUG, "read request from L1 instruction cache")
 
         # 3: snooped read request
@@ -64,6 +72,7 @@ def handle_event(event_opcode: int) -> dict[str, int]:
             logger.log(
                 LogLevel.DEBUG, "print contents and state of each valid cache line"
             )
+            cache.print_cache()
 
         # Default case (if opcode does not match any known command)
         case _:
