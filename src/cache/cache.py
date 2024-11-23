@@ -2,10 +2,10 @@ import math
 import warnings
 from typing import List, NamedTuple, Optional
 
-from cache.bus_interface import BusInterface
+from cache.bus_interface import bus_operation, put_snoop_result
 from cache.cache_set import CacheLine, CacheSetPLRUMESI
-from cache.l1_interface import L1Interface
-from cache.mesi_controller import MESICoherenceController
+from cache.l1_interface import message_to_l1_cache
+from cache.mesi_controller import handle_processor_request, mesi_handle_snoop
 from common.constants import BusOp, CacheMessage, LogLevel, MESIState, SnoopResult
 from config.cache_config import CacheConfig
 from config.project_config import config  # Import global config object
@@ -74,13 +74,6 @@ class Cache:
 
         # Calculate number of sets
         self.num_sets = self.total_capacity // (self.line_size * self.associativity)
-
-        # Setup MESI Coherence Controller
-        self.bus = BusInterface(logger=self.logger)
-        self.l1 = L1Interface(logger=self.logger)
-        self.coherence_controller = MESICoherenceController(
-            bus_interface=self.bus, l1_interface=self.l1
-        )
 
         # Validate cache parameters
         if not math.log2(self.line_size).is_integer():
@@ -158,7 +151,7 @@ class Cache:
         if cache_set is None:
             self.statistics.record_miss()
             self.sets[addr_fields.index] = self.__create_set()
-            new_state = self.coherence_controller.handle_processor_request(
+            new_state = handle_processor_request(
                 current_state=MESIState.INVALID,
                 address=address,
                 is_processor_write=is_write,
@@ -171,7 +164,7 @@ class Cache:
 
         if way_index is not None:  # HIT
             current_state = cache_set.mesi_state[way_index]
-            new_state = self.coherence_controller.handle_processor_request(
+            new_state = handle_processor_request(
                 current_state=current_state,
                 address=address,
                 is_processor_write=is_write,
@@ -181,7 +174,7 @@ class Cache:
             return True
 
         else:  # MISS
-            new_state = self.coherence_controller.handle_processor_request(
+            new_state = handle_processor_request(
                 current_state=MESIState.INVALID,
                 address=address,
                 is_processor_write=is_write,
@@ -248,19 +241,19 @@ class Cache:
 
         if cache_set is None:
             # No need to handle snoop if this cache doesn't have copy
-            self.bus_interface.put_snoop_result(address, SnoopResult.NOHIT)
+            put_snoop_result(address, SnoopResult.NOHIT)
             return
 
         way_index = cache_set.search_set(addr_fields.tag, update_plru=False)
 
         if way_index is not None:
             current_state = cache_set.mesi_state[way_index]
-            new_state = self.coherence_controller.handle_snoop(
+            new_state = mesi_handle_snoop(
                 current_state=current_state, bus_op=bus_op, address=address
             )
             cache_set.mesi_state[way_index] = new_state
         else:
-            self.bus_interface.put_snoop_result(address, SnoopResult.NOHIT)
+            put_snoop_result(address, SnoopResult.NOHIT)
 
     def handle_victim_line(
         self, victim_line: Optional[CacheLine], address: int
@@ -275,10 +268,10 @@ class Cache:
 
         if victim_line.is_modified():
             # Get most recent data from l1
-            self.l1.message_to_cache(CacheMessage.GETLINE, address)
-            self.l1.message_to_cache(CacheMessage.EVICTLINE, address)
+            message_to_l1_cache(CacheMessage.GETLINE, address)
+            message_to_l1_cache(CacheMessage.EVICTLINE, address)
             # Perform writeback for modified data
-            self.bus.bus_operation(BusOp.WRITE, address)
+            bus_operation(BusOp.WRITE, address)
 
     def lookup_line(self, address: int) -> Optional[CacheLine]:
         """

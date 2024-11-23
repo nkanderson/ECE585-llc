@@ -45,3 +45,18 @@ class BusInterface:
             LogLevel.NORMAL,
             f"Address: {address:08x}, Snoop Result: {snoop_result.name}",
         )
+
+
+_bus_interface = BusInterface()
+
+
+def bus_operation(bus_op: BusOp, address: int) -> SnoopResult:
+    return _bus_interface.bus_operation(bus_op, address)
+
+
+def get_snoop_result(address: int) -> SnoopResult:
+    return _bus_interface.get_snoop_result(address)
+
+
+def put_snoop_result(address: int, snoop_result: SnoopResult) -> None:
+    _bus_interface.put_snoop_result(address, snoop_result)
