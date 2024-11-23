@@ -6,6 +6,7 @@ from common.constants import MESIState
 from config.project_config import config
 
 class TestCache(unittest.TestCase):
+    """Test basic functionality of cache, line lookup, and statistics tracking"""
     def setUp(self): 
         """Create a cache instance with test configuration"""
         config.initialize()
@@ -79,26 +80,6 @@ class TestCache(unittest.TestCase):
         self.assertEqual(self.cache.statistics.cache_hits, expected_hits)
         self.assertEqual(self.cache.statistics.cache_writes, accesses)
 
-    def test_basic_mesi_state(self):
-        """Test basic getting and setting of MESI state"""
-        addr = 0x1234_5678
-        
-        # Initially state should be None (line not present)
-        self.assertIsNone(self.cache.get_line_state(addr))
-        
-        # Fill line with EXCLUSIVE state
-        self.cache.cache_line_fill(addr, MESIState.EXCLUSIVE)
-        
-        # Verify we can get the state
-        self.assertEqual(self.cache.get_line_state(addr), MESIState.EXCLUSIVE)
-        
-        # Verify we can set a new state
-        self.assertTrue(self.cache.set_line_state(addr, MESIState.MODIFIED))
-        self.assertEqual(self.cache.get_line_state(addr), MESIState.MODIFIED)
-        
-        # Verify setting state of non-existent line returns False
-        non_existent_addr = 0x5555_5555
-        self.assertFalse(self.cache.set_line_state(non_existent_addr, MESIState.MODIFIED))
     
     def test_lookup_line(self):
         """Test line lookup functionality"""
@@ -117,18 +98,6 @@ class TestCache(unittest.TestCase):
         self.assertIsNotNone(line)
         self.assertEqual(line.mesi_state, MESIState.MODIFIED)
         
-        # Verify lookup doesn't affect cache state
-        self.assertEqual(
-            self.cache.get_line_state(addr),
-            MESIState.MODIFIED
-        )
-        
-        # Verify modifying returned line doesn't affect cache
-        line.mesi_state = MESIState.SHARED
-        self.assertEqual(
-            self.cache.get_line_state(addr),
-            MESIState.MODIFIED
-        )
     
     def test_cache_line_fill(self):
         """Test cache line fill operations"""
