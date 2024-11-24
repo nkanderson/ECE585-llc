@@ -1,9 +1,12 @@
 from cache.cache import Cache
 from common.constants import LogLevel
 from config.project_config import config
+from typing import Optional
 
 
-def handle_event(cache: type[Cache], event_opcode: int, addr: int) -> None:
+def handle_event(
+    cache: type[Cache], event_opcode: int, addr: Optional[int] = None
+) -> None:
     """
     Processes a cache event based on the provided opcode and
     returns cache statistics for this event.
@@ -18,9 +21,6 @@ def handle_event(cache: type[Cache], event_opcode: int, addr: int) -> None:
     logger = config.get_logger()
 
     # Match on the event_opcode
-    # TODO: Logging event description should be replaced with desired
-    # functionality for each event, and cache_stats should be updated
-    # accordingly.
     match event_opcode:
         # 0: read request from L1 data cache
         case 0:

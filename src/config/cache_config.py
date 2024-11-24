@@ -21,44 +21,40 @@ from dotenv import load_dotenv
 
 
 class CacheConfig:
-    def __init__(self):
-        # If load_dotenv is None because no .env file is present,
-        # load_config will check for values from the environment instead
+    def __init__(
+        self,
+        total_capacity_mb=None,
+        line_size=None,
+        associativity=None,
+        protocol=None,
+        address_size=None,
+    ):
+        """
+        Load cache configuration values.
+
+        Precedence of values is as follows:
+        - CacheConfig init arguments
+        - environment variable (with .env loaded)
+        - default value
+        """
+        # Attempt to load .env file
         load_dotenv()
-        self.load_config()
 
-    def load_config(self):
-        """
-        Load configuration parameters from environment variables.
-        Raises EnvironmentError if any required variable is missing.
-        """
-        capacity = os.getenv("CACHE_CAPACITY_MB")
-        if capacity is None:
-            raise EnvironmentError("CACHE_CAPACITY_MB not set in .env file")
+        # Allow for user-provided values, but fall back to env vars or default
+        self.total_capacity_mb = total_capacity_mb or self._get_env_var(
+            "CACHE_CAPACITY_MB", 16
+        )
+        self.line_size = line_size or self._get_env_var("CACHE_LINE_SIZE", 64)
+        self.associativity = associativity or self._get_env_var(
+            "CACHE_ASSOCIATIVITY", 16
+        )
+        self.protocol = protocol or self._get_env_var("CACHE_PROTOCOL", "MESI")
+        self.address_size = address_size or self._get_env_var("CACHE_ADDRESS_SIZE", 32)
+        self.total_capacity = self.total_capacity_mb * 2**20  # Convert MB to bytes
 
-        line_size = os.getenv("CACHE_LINE_SIZE_B")  # Fixed variable name
-        if line_size is None:
-            raise EnvironmentError("CACHE_LINE_SIZE_B not set in .env file")
-
-        associativity = os.getenv("CACHE_ASSOCIATIVITY")
-        if associativity is None:
-            raise EnvironmentError("CACHE_ASSOCIATIVITY not set in .env file")
-
-        protocol = os.getenv("CACHE_PROTOCOL")
-        if protocol is None:
-            raise EnvironmentError("CACHE_PROTOCOL not set in .env file")
-
-        address_size = os.getenv("ADDRESS_SIZE")
-        if address_size is None:
-            raise EnvironmentError("ADDRESS_SIZE not set in .env file")
-
-        # Convert values
-        self.total_capacity_mb = int(capacity)
-        self.total_capacity = int(capacity) * 2**20  # Convert MB to bytes
-        self.line_size = int(line_size)
-        self.associativity = int(associativity)
-        self.protocol = protocol
-        self.address_size = int(address_size)  # In bits
+    @staticmethod
+    def _get_env_var(env_var_name, default_value):
+        return type(default_value)(os.getenv(env_var_name, default_value))
 
 
 """

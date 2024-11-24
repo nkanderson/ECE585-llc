@@ -1,23 +1,32 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from common.constants import LogLevel
+from cache.cache import Cache
+
+from config.cache_config import CacheConfig
 
 from utils.event_handler import handle_event
 
 
 class TestEventHandler(unittest.TestCase):
+    """
+    Tests that the appropriate cache methods are called for each event opcode.
+    """
+
     def setUp(self):
-        # Expected initial cache stats dictionary
-        self.expected_cache_stats = {
-            "cache_reads": 0,
-            "cache_writes": 0,
-            "cache_hits": 0,
-            "cache_misses": 0,
-        }
+        cache_config = CacheConfig()
 
         # Mocking the config logger and args for testing
         self.mock_logger = MagicMock()
         self.mock_args = MagicMock(silent=False, debug=True)
+
+        self.cache = Cache(cache_config, self.mock_logger)
+
+        # Replace cache methods with MagicMocks
+        self.cache.pr_read = MagicMock()
+        self.cache.pr_write = MagicMock()
+        self.cache.handle_snoop = MagicMock()
+        self.cache.clear_cache = MagicMock()
+        self.cache.print_cache = MagicMock()
 
         # Patch the config logger and args
         patch(
@@ -31,42 +40,83 @@ class TestEventHandler(unittest.TestCase):
         # Stop any patches done during the test
         patch.stopall()
 
-    def test_handle_event_returns_initial_cache_stats(self):
-        """Test that handle_event returns the correct initial cache stats for each opcode."""
+    def test_handle_event_with_pr_read(self):
+        """Test that handle_event appropriately calls cache.pr_read()."""
 
-        # Test for all valid opcodes (0-9, excluding 7 which isn't handled)
-        for opcode in [0, 1, 2, 3, 4, 5, 6, 8, 9]:
+        # Test for op codes 0 and 2, read request from L1
+        for opcode in [0, 2]:
             with self.subTest(opcode=opcode):
-                # result = self.handle_event(opcode)
-                result = handle_event(opcode)
-                self.assertEqual(result, self.expected_cache_stats)
+                # Reset mock so that calls do not accumulate between
+                # different opcode tests
+                self.cache.pr_read.reset_mock()
+                handle_event(self.cache, opcode, addr=0x1234)
 
-    def test_handle_event_write_from_l1(self):
-        """Test that handle_event with opcode 1 returns expected cache stats and logs the correct message."""
+                # Assert pr_read was called with the correct address
+                self.cache.pr_read.assert_called_once_with(0x1234)
 
-        result = handle_event(1)
+                # Ensure other methods are not called
+                self.cache.pr_write.assert_not_called()
+                self.cache.handle_snoop.assert_not_called()
+                self.cache.clear_cache.assert_not_called()
+                self.cache.print_cache.assert_not_called()
 
-        # For now, still returning initial cache stats
-        # This check can be updated when different stats are returned
-        self.assertEqual(result, self.expected_cache_stats)
+    def test_handle_event_with_pr_write(self):
+        """Test that handle_event appropriately calls cache.pr_write()."""
+        opcode = 1
+        handle_event(self.cache, opcode, addr=0x5678)
 
-        # Verify logger called with correct message for opcode 1
-        self.mock_logger.log.assert_called_once_with(
-            LogLevel.DEBUG, "write request from L1 data cache"
-        )
+        # Assert pr_write was called with the correct address
+        self.cache.pr_write.assert_called_once_with(0x5678)
 
-    def test_logger_called_with_correct_message(self):
-        """Test that the logger is called with the correct message for a specific opcode."""
+        # Ensure other methods are not called
+        self.cache.pr_read.assert_not_called()
+        self.cache.handle_snoop.assert_not_called()
+        self.cache.clear_cache.assert_not_called()
+        self.cache.print_cache.assert_not_called()
 
-        # Use an opcode with a known log message, e.g., 0 for "read request from L1 data cache"
-        handle_event(0)
+    def test_handle_event_with_handle_snoop(self):
+        """Test that handle_event appropriately calls cache.handle_snoop()."""
+        for opcode in [3, 4, 5, 6]:
+            with self.subTest(opcode=opcode):
+                # Reset mock so that calls do not accumulate between
+                # different opcode tests
+                self.cache.handle_snoop.reset_mock()
+                handle_event(self.cache, opcode, addr=0x9ABC)
 
-        # Check that the logger was called once with the expected message and log level
-        self.mock_logger.log.assert_called_once_with(
-            LogLevel.DEBUG, "read request from L1 data cache"
-        )
+                # Assert handle_snoop was called with the correct address
+                self.cache.handle_snoop.assert_called_once_with(opcode, 0x9ABC)
 
-    # Additional tests for other opcodes can be similarly added if needed.
+                # Ensure other methods are not called
+                self.cache.pr_read.assert_not_called()
+                self.cache.pr_write.assert_not_called()
+                self.cache.clear_cache.assert_not_called()
+                self.cache.print_cache.assert_not_called()
+
+    def test_handle_event_with_clear_cache(self):
+        opcode = 8
+        handle_event(self.cache, opcode)
+
+        # Assert clear_cache was called
+        self.cache.clear_cache.assert_called_once()
+
+        # Ensure other methods are not called
+        self.cache.pr_read.assert_not_called()
+        self.cache.pr_write.assert_not_called()
+        self.cache.handle_snoop.assert_not_called()
+        self.cache.print_cache.assert_not_called()
+
+    def test_handle_event_with_print_cache(self):
+        event_opcode = 9
+        handle_event(self.cache, event_opcode)
+
+        # Assert print_cache was called
+        self.cache.print_cache.assert_called_once()
+
+        # Ensure other methods are not called
+        self.cache.pr_read.assert_not_called()
+        self.cache.pr_write.assert_not_called()
+        self.cache.handle_snoop.assert_not_called()
+        self.cache.clear_cache.assert_not_called()
 
 
 if __name__ == "__main__":

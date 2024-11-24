@@ -44,7 +44,6 @@ class Config:
         # Create a new cache_config instance and load config from env vars.
         # These values can be overridden by command line options.
         self.cache_config = CacheConfig()
-        self.cache_config.load_config()
 
         # Parse command line arguments, using env vars where relevant as defaults
         self.args = args = self.parse_arguments()
