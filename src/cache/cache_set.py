@@ -240,53 +240,22 @@ class CacheSetPLRUMESI:
         # Calculate leaf node index based on number of ways
         return node - (self.num_ways - 1)
 
-    def __find_line(self, tag: int) -> Tuple[Optional[CacheLine], Optional[int]]:
+    def search_set(self, tag: int, update_plru: bool = False) -> Optional[int]:
         """
-        Private Search Method: Find a cache line by tag.
-            Returns (line, way_index) or (None, None)
-        """
-        for i, line in enumerate(self.ways):
-            if not line.is_invalid() and line.tag == tag:
-                return line, i
-        return None, None
-
-    def find_way_by_tag(self, tag: int) -> Optional[int]:
-        """
-        Find the way index containing a specific tag
+        Search the set for a matching tag.
+        If update_plru is True (processor-side request), update PLRU bits on hit.
         Args:
             tag: Tag to search for
+            update_plru: Whether to update PLRU bits (True for processor requests)
         Returns:
             Way index if found, None if not found
         """
-        for i, line in enumerate(self.ways):
+        for way_index, line in enumerate(self.ways):
             if not line.is_invalid() and line.tag == tag:
-                return i
-        return None
-
-    def pr_read(self, tag: int) -> bool:
-        """
-        Simulates a processor side read request to a cache set. If tag is found returns HIT, else MISS.
-        Upon a valid access plru bits are updated.
-        """
-        line, way_index = self.__find_line(tag)
-        if line is not None:  # Hit
-            # Update PLRU state bits on hit
-            self.__update_plru(way_index)
-            return True
-        return False  # Miss
-
-    def pr_write(self, tag: int) -> bool:
-        """
-        Simulates a processor side cache write request to a set. Write allocate policy is employed so any
-        write misses require cache to allocate line.
-        If tag is found returns HIT, else MISS.
-        """
-        line, way_index = self.__find_line(tag)
-        if line is not None:  # Hit
-            self.__update_plru(way_index)
-
-            return True
-        return False  # Miss, TODO: Implement write allocate logic, might be done by controller
+                if update_plru:
+                    self.__update_plru(way_index)
+                return way_index
+        return None  # Cache Miss
 
     def allocate(
         self, tag: int, state: MESIState = MESIState.EXCLUSIVE

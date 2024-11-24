@@ -44,29 +44,45 @@ class TestCacheSet(unittest.TestCase):
             self.assertEqual(way.tag, 0)
             self.assertTrue(way.is_invalid())
 
-    def test_read_operations(self):
-        """Test cache read operations"""
-        # Read miss on empty cache
-        self.assertFalse(self.cache_set.pr_read(0x1234))
+    def test_search_and_allocate(self):
+        """Test cache search and allocation operations with PLRU updates"""
+        # Test search on empty cache - should miss
+        self.assertIsNone(self.cache_set.search_set(0x1234))
 
-        # Allocate line and verify read hit
-        self.cache_set.allocate(0x1234)
-        self.assertTrue(self.cache_set.pr_read(0x1234))
+        # Allocate a line and verify search hit
+        self.cache_set.allocate(0x1234, MESIState.EXCLUSIVE)
+        # Test processor side request (updates PLRU)
+        way_index = self.cache_set.search_set(0x1234, update_plru=True)
+        self.assertIsNotNone(way_index)
+        self.assertEqual(self.cache_set.mesi_state[way_index], MESIState.EXCLUSIVE)
 
-        # Read miss on different tag
-        self.assertFalse(self.cache_set.pr_read(0x5678))
+        # Test snoop request (no PLRU update)
+        way_index = self.cache_set.search_set(0x1234, update_plru=False)
+        self.assertIsNotNone(way_index)
 
-    def test_write_operations(self):
-        """Test cache write operations"""
-        # Write miss on empty cache
-        self.assertFalse(self.cache_set.pr_write(0x1234))
+        # Search miss on different tag
+        self.assertIsNone(self.cache_set.search_set(0x5678))
 
-        # Allocate line and verify write hit
-        self.cache_set.allocate(0x1234)
-        self.assertTrue(self.cache_set.pr_write(0x1234))
+    def test_allocation_with_mesi(self):
+        """Test cache line allocation with different MESI states"""
+        # Allocate first line as EXCLUSIVE
+        victim_line, way = self.cache_set.allocate(0x1234, MESIState.EXCLUSIVE)
+        self.assertIsNone(victim_line)  # No victim on first allocation
+        self.assertEqual(self.cache_set.mesi_state[way], MESIState.EXCLUSIVE)
 
-        # Write miss on different tag
-        self.assertFalse(self.cache_set.pr_write(0x5678))
+        # Allocate second line as SHARED
+        victim_line, way = self.cache_set.allocate(0x5678, MESIState.SHARED)
+        self.assertIsNone(victim_line)
+        self.assertEqual(self.cache_set.mesi_state[way], MESIState.SHARED)
+
+        # Fill rest of set to force eviction
+        for i in range(2, self.cache_set.num_ways):
+            self.cache_set.allocate(0x1000 + i, MESIState.EXCLUSIVE)
+
+        # Next allocation should cause eviction
+        victim_line, way = self.cache_set.allocate(0xAAAA, MESIState.MODIFIED)
+        self.assertIsNotNone(victim_line)
+        self.assertEqual(self.cache_set.mesi_state[way], MESIState.MODIFIED)
 
     def test_plru_update(self):
         """Test PLRU bit updates after access (basic test)
@@ -193,55 +209,67 @@ class TestCacheSet(unittest.TestCase):
         Test PLRU behavior during a realistic allocation sequence.
         First fill all ways sequentially, then access ways 8 and 2,
         and finally allocate a new line which should evict way 12.
+        
+        This test verifies:
+        1. Initial allocation sequence uses ways in order
+        2. PLRU bits are properly updated during allocations
+        3. PLRU bits are properly updated during searches
+        4. Victim selection follows PLRU policy
         """
         # Fill all ways sequentially
         allocation_sequence = [
-            {"tag": 0x0, "expected_way": 0, "expected_victim": None},
-            {"tag": 0x1, "expected_way": 1, "expected_victim": None},
-            {"tag": 0x2, "expected_way": 2, "expected_victim": None},
-            {"tag": 0x3, "expected_way": 3, "expected_victim": None},
-            {"tag": 0x4, "expected_way": 4, "expected_victim": None},
-            {"tag": 0x5, "expected_way": 5, "expected_victim": None},
-            {"tag": 0x6, "expected_way": 6, "expected_victim": None},
-            {"tag": 0x7, "expected_way": 7, "expected_victim": None},
-            {"tag": 0x8, "expected_way": 8, "expected_victim": None},
-            {"tag": 0x9, "expected_way": 9, "expected_victim": None},
-            {"tag": 0xA, "expected_way": 10, "expected_victim": None},
-            {"tag": 0xB, "expected_way": 11, "expected_victim": None},
-            {"tag": 0xC, "expected_way": 12, "expected_victim": None},
-            {"tag": 0xD, "expected_way": 13, "expected_victim": None},
-            {"tag": 0xE, "expected_way": 14, "expected_victim": None},
-            {"tag": 0xF, "expected_way": 15, "expected_victim": None},
+            {"tag": i, "expected_way": i} for i in range(16)
         ]
 
         # Perform initial allocations
         for i, alloc in enumerate(allocation_sequence):
             with self.subTest(step=f"Initial allocation {i}"):
-                victim_line, way = self.cache_set.allocate(alloc["tag"])
+                # Allocate new line with EXCLUSIVE state
+                victim_line, way = self.cache_set.allocate(
+                    alloc["tag"], 
+                    state=MESIState.EXCLUSIVE
+                )
+                
+                # Debug output
                 print(f"\nAllocation {i} - Tag {hex(alloc['tag'])}:")
                 print(f"Selected way: {way}")
-                print(f"PLRU state:   {self.cache_set.state:015b}")
-
+                print(f"PLRU state:  {self.cache_set.state:015b}")
+                
+                # Verify allocation
                 self.assertEqual(way, alloc["expected_way"])
                 self.assertIsNone(victim_line)  # No victims during initial fill
 
-        # Access way 8 and 2 to match the PLRU pattern
-        self.assertTrue(self.cache_set.pr_read(0x8))  # Access way 8
-        self.assertTrue(self.cache_set.pr_read(0x2))  # Access way 2
+        # Access way 8 and 2 using search_set with PLRU update
+        way8 = self.cache_set.search_set(0x8, update_plru=True)
+        self.assertIsNotNone(way8)
+        self.assertEqual(way8, 8)
+
+        way2 = self.cache_set.search_set(0x2, update_plru=True)
+        self.assertIsNotNone(way2)
+        self.assertEqual(way2, 2)
 
         # Now allocate a new line - should evict way 12
-        victim_line, way = self.cache_set.allocate(0xAAAA)
+        victim_line, way = self.cache_set.allocate(0xAAAA, state=MESIState.EXCLUSIVE)
+        
+        # Debug output
         print("\nFinal allocation - Tag 0xAAAA:")
         print(f"Selected way: {way}")
-        print(
-            f"PLRU state:   {self.cache_set.state:015b}"
-        )  # Expected: 0b101_0110_1001_1101
-        print(f"Victim tag:   {hex(victim_line.tag) if victim_line else None}")
+        print(f"PLRU state:  {self.cache_set.state:015b}")  # Expected: 0b101_0110_1001_1101
+        print(f"Victim tag:  {hex(victim_line.tag) if victim_line else None}")
 
-        # Verify the final allocation
-        self.assertEqual(way, 12)  # Should use way 12
-        self.assertIsNotNone(victim_line)  # Should have a victim
-        self.assertEqual(victim_line.tag, 0xC)  # Victim should have tag 0xC
+        # Verify final allocation
+        self.assertEqual(way, 12, "PLRU should select way 12 for replacement")
+        self.assertIsNotNone(victim_line, "Should have evicted a line")
+        self.assertEqual(
+            victim_line.tag, 
+            0xC, 
+            f"Wrong line evicted, expected 0xC got {hex(victim_line.tag)}"
+        )
+        self.assertEqual(
+            victim_line.mesi_state, 
+            MESIState.EXCLUSIVE, 
+            "Evicted line should have been in EXCLUSIVE state"
+        )
 
     def test_print_set(self):
         """Test printing of valid lines in the set"""
@@ -258,42 +286,6 @@ class TestCacheSet(unittest.TestCase):
         cache_set.allocate(0xDEF0, MESIState.INVALID)
         cache_set.print_set()  # Should print the valid lines
 
-    def test_find_way_by_tag(self):
-        """Test finding way index by tag"""
-        # Test empty set first
-        self.assertIsNone(self.cache_set.find_way_by_tag(0x1234))
-
-        # Set up test cases
-        test_lines = [
-            (0x1234, MESIState.MODIFIED, 0),    # Way 0
-            (0x5678, MESIState.EXCLUSIVE, 1),   # Way 1
-            (0xABCD, MESIState.SHARED, 2),      # Way 2
-            (0xDEAD, MESIState.INVALID, 3),     # Way 3 (invalid)
-        ]
-
-        # Allocate test lines
-        for tag, state, expected_way in test_lines:
-            victim_line, way = self.cache_set.allocate(tag, state)
-            self.assertEqual(way, expected_way)
-
-        # Test cases
-        test_cases = [
-            (0x1234, 0),        # Should find in way 0
-            (0x5678, 1),        # Should find in way 1
-            (0xABCD, 2),        # Should find in way 2
-            (0xDEAD, None),     # Should not find invalid line
-            (0xBEEF, None),     # Should not find non-existent tag
-        ]
-
-        # Run test cases
-        for tag, expected_way in test_cases:
-            with self.subTest(tag=hex(tag)):
-                result = self.cache_set.find_way_by_tag(tag)
-                self.assertEqual(
-                    result,
-                    expected_way,
-                    f"For tag {hex(tag)}: expected way {expected_way}, got {result}"
-                )
 
     def test_mesi_state_descriptor(self): 
             # Create a fresh cache set
