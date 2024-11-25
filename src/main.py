@@ -9,8 +9,8 @@ Description: This program simulates the behavior of a 16MB, 16-way set associati
 
 import sys
 
-from cache.cache import Cache
 from cache.bus_interface import BusInterface
+from cache.cache import Cache
 from cache.l1_interface import L1Interface
 from common.constants import LogLevel
 from config.project_config import config

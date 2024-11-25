@@ -93,34 +93,38 @@ class TestCacheSet(unittest.TestCase):
         # Access first way
         self.cache_set._CacheSetPLRUMESI__update_plru(0)
         expected_state = 0b000_0000_0000_0000
-        print("After way 0 access:")
-        print(f"Current state:  {self.cache_set.state:015b}")
-        print(f"Expected state: {expected_state:015b}")
-        self.assertEqual(self.cache_set.state, expected_state)
+        self.assertEqual(
+            self.cache_set.state, 
+            expected_state,
+            f"After way 0 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+        )
 
         # Access second way
         self.cache_set._CacheSetPLRUMESI__update_plru(1)
         expected_state = 0b000_0000_1000_0000
-        print("After way 1 access:")
-        print(f"Current state:  {self.cache_set.state:015b}")
-        print(f"Expected state: {expected_state:015b}")
-        self.assertEqual(self.cache_set.state, expected_state)
+        self.assertEqual(
+            self.cache_set.state, 
+            expected_state,
+            f"After way 1 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+        )
 
         # Test way 8 access
         self.cache_set._CacheSetPLRUMESI__update_plru(8)
         expected_state = 0b000_0000_1000_0001
-        print("After way 8 access:")
-        print(f"Current state:  {self.cache_set.state:015b}")
-        print(f"Expected state: {expected_state:015b}")
-        self.assertEqual(self.cache_set.state, expected_state)
+        self.assertEqual(
+            self.cache_set.state, 
+            expected_state,
+            f"After way 8 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+        )
 
         # Test way 15 access
         self.cache_set._CacheSetPLRUMESI__update_plru(15)
         expected_state = 0b100_0000_1100_0101
-        print("After way 15 access: ")
-        print(f"Current state:  {self.cache_set.state:015b}")
-        print(f"Expected state: {expected_state:015b}")
-        self.assertEqual(self.cache_set.state, expected_state)
+        self.assertEqual(
+            self.cache_set.state, 
+            expected_state,
+            f"After way 15 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+        )
 
     def test_plru_behavior(self):
         """
@@ -131,26 +135,7 @@ class TestCacheSet(unittest.TestCase):
         test_cases = [
             {
                 "name": "Sequential Access to All 16 Ways, then access 8, and 2 repectively",
-                "access_pattern": [
-                    0,
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    14,
-                    15,
-                    8,
-                    2,
-                ],
+                "access_pattern": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 8, 2],
                 "states": [
                     (0, 0b000_0000_0000_0000),  # After way 0
                     (1, 0b000_0000_1000_0000),  # After way 1
@@ -183,17 +168,12 @@ class TestCacheSet(unittest.TestCase):
                 # Execute access pattern and verify states
                 for i, way in enumerate(test_case["access_pattern"]):
                     self.cache_set._CacheSetPLRUMESI__update_plru(way)
-                    expected_way, expected_state = test_case["states"][i]
-
-                    # Debug output
-                    print(f"\n{test_case['name']} - After way {way} access:")
-                    print(f"Current state:  {self.cache_set.state:015b}")
-                    print(f"Expected state: {expected_state:015b}")
+                    _ , expected_state = test_case["states"][i]
 
                     self.assertEqual(
                         self.cache_set.state,
                         expected_state,
-                        f"PLRU state mismatch after accessing way {way}",
+                        f"PLRU state mismatch after accessing way {way}. Expected {expected_state:015b}, got {self.cache_set.state:015b}",
                     )
 
                 # Verify final victim selection
@@ -229,12 +209,6 @@ class TestCacheSet(unittest.TestCase):
                     alloc["tag"], 
                     state=MESIState.EXCLUSIVE
                 )
-                
-                # Debug output
-                print(f"\nAllocation {i} - Tag {hex(alloc['tag'])}:")
-                print(f"Selected way: {way}")
-                print(f"PLRU state:  {self.cache_set.state:015b}")
-                
                 # Verify allocation
                 self.assertEqual(way, alloc["expected_way"])
                 self.assertIsNone(victim_line)  # No victims during initial fill
@@ -250,12 +224,6 @@ class TestCacheSet(unittest.TestCase):
 
         # Now allocate a new line - should evict way 12
         victim_line, way = self.cache_set.allocate(0xAAAA, state=MESIState.EXCLUSIVE)
-        
-        # Debug output
-        print("\nFinal allocation - Tag 0xAAAA:")
-        print(f"Selected way: {way}")
-        print(f"PLRU state:  {self.cache_set.state:015b}")  # Expected: 0b101_0110_1001_1101
-        print(f"Victim tag:  {hex(victim_line.tag) if victim_line else None}")
 
         # Verify final allocation
         self.assertEqual(way, 12, "PLRU should select way 12 for replacement")

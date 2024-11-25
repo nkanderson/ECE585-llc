@@ -81,10 +81,7 @@ class TestCache(unittest.TestCase):
 
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
-            hit = self.cache.pr_read(test_addresses[i % 3])
-            if not hit:
-                # Fill the line after miss
-                self.cache.cache_line_fill(test_addresses[i % 3], MESIState.EXCLUSIVE)
+            self.cache.pr_read(test_addresses[i % 3])
 
         self.assertEqual(self.cache.statistics.cache_writes, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
@@ -100,10 +97,8 @@ class TestCache(unittest.TestCase):
 
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
-            hit = self.cache.pr_write(test_addresses[i % 3])
-            if not hit:
-                # Fill the line after miss
-                self.cache.cache_line_fill(test_addresses[i % 3], MESIState.EXCLUSIVE)
+            self.cache.pr_write(test_addresses[i % 3])
+            
 
         self.assertEqual(self.cache.statistics.cache_reads, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
@@ -189,7 +184,6 @@ class TestCache(unittest.TestCase):
         addresses = [0x1000, 0x2000, 0x3000, 0x4000, 0x5000]
         for addr in addresses:
             self.cache.pr_write(addr)
-            self.cache.cache_line_fill(addr, MESIState.EXCLUSIVE)
 
         # Verify lines are present
         for addr in addresses:
@@ -203,26 +197,25 @@ class TestCache(unittest.TestCase):
             self.assertIsNone(self.cache.lookup_line(addr))
 
     def test_print_cache(self):
-        """Test printing cache contents"""
-        import random
-
-        # Initially cache should be empty
-        print("\nPrinting empty cache:")
-        self.cache.print_cache()
-
+        """Test printing calls our cache logger"""
         # Generate 10 random addresses (ensuring they don't overlap)
         base_addr = 0x1000_0000
         random_addrs = [base_addr + (i * self.cache.line_size) for i in range(10)]
 
-        # Add lines to cache with different MESI states
-        states = [MESIState.MODIFIED, MESIState.EXCLUSIVE, MESIState.SHARED]
+        # Add lines to cache
+        added_lines = []
 
         for addr in random_addrs:
             self.cache.pr_write(addr)
-            # Randomly choose a MESI state for each line
-            state = random.choice(states)
-            self.cache.cache_line_fill(addr, state)
+            added_lines.append(addr)
 
-        # Print cache with contents
-        print(f"\nPrinting cache with {len(random_addrs)} lines:")
+        for addr in added_lines:
+            # Verify lines are present
+            line = self.cache.lookup_line(addr)
+            self.assertIsNotNone(line, f"Cache line for address {hex(addr)} should be present")
+
+        # Reset mock logger and verify it gets called to print cache
+        self.mock_logger.reset_mock()
         self.cache.print_cache()
+        self.assertTrue(self.mock_logger.log.called, "Logger should be called to print cache")
+        
