@@ -1,7 +1,8 @@
+from typing import Optional
+
 from cache.cache import Cache
 from common.constants import LogLevel
 from config.project_config import config
-from typing import Optional
 
 
 def handle_event(
