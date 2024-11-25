@@ -11,13 +11,12 @@ class MESICoherenceController:
         Handles processor read request
         return: next state of the cacheline
         """
-        # Based on project requirements bus operation will return void, so
-        # we need to check snoop result individual. TODO: Check if this is correct?
-        snoop_result = get_snoop_result(address)
 
         if current_state == MESIState.INVALID and not is_processor_write:
             bus_operation(BusOp.READ, address)
-
+            # Based on project requirements bus operation will return void, so
+            # we need to check snoop result individual. TODO: Check if this is correct?
+            snoop_result = get_snoop_result(address)
             if snoop_result in [SnoopResult.HIT, SnoopResult.HITM]:
                 # Other cache will provide modified data, assume this happens automatically (per Mark's guidance)
                 # Other LLC will flush the data, we will snarf it, making our state SHARED
