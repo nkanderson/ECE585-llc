@@ -3,6 +3,7 @@ import unittest
 from cache.cache_set import CacheSetPLRUMESI
 from common.constants import MESIState
 
+
 class TestCacheSet(unittest.TestCase):
     """Unit tests for CacheSet implementation"""
 

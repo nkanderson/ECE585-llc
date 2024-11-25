@@ -1,9 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
 from cache.cache import Cache
-
 from config.cache_config import CacheConfig
-
 from utils.event_handler import handle_event
 
 

@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from config.cache_config import CacheConfig
 from cache.bus_interface import BusInterface
-from cache.l1_interface import L1Interface
-from cache.cache import Cache, AddressFields
+from cache.cache import AddressFields, Cache
 from cache.cache_set import CacheLine
+from cache.l1_interface import L1Interface
 from common.constants import MESIState
+from config.cache_config import CacheConfig
 
 
 class TestCache(unittest.TestCase):
