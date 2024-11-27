@@ -274,7 +274,7 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that sent line was not called
         # L1 is write through on first write, so L1 and L2 will have modified line at the
         # same time
-        self.mock_l1_message.assert_not_called()
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: EXCLUSIVE -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)

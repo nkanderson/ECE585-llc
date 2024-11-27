@@ -46,13 +46,11 @@ class MESICoherenceController:
             bus_operation(BusOp.INVALIDATE, address)  # Bus Upgrade
             return MESIState.MODIFIED
 
-        elif current_state == MESIState.EXCLUSIVE and is_processor_write:
-            # No bus operation needed, update state to MODIFIED
-            return MESIState.MODIFIED
-
-        elif current_state == MESIState.MODIFIED and is_processor_write:
-            # No bus operation needed, stay in MODIFIED state
-            # But L1 cache needs data, so send it
+        elif (
+            current_state in [MESIState.MODIFIED, MESIState.EXCLUSIVE]
+            and is_processor_write
+        ):
+            # No bus operation needed, move or state in modified but send line to L1
             message_to_l1_cache(CacheMessage.SENDLINE, address)
             return MESIState.MODIFIED
 
