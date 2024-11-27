@@ -15,48 +15,48 @@ class TestMESIProtocol(unittest.TestCase):
 
     def setUp(self):
         """Setup up test environment before each test"""
-        
+
         # Create mock logger
         self.mock_logger = MagicMock(spec=CacheLogger)
         self.mock_args = MagicMock(silent=False, debug=True)
 
         # Patch config to prevent real logger usage
         patch(
-            "config.project_config.config.get_logger",
-            return_value=self.mock_logger
-        ).start()
-        
-        patch(
-            "config.project_config.config.get_args",
-            return_value=self.mock_args
+            "config.project_config.config.get_logger", return_value=self.mock_logger
         ).start()
 
+        patch(
+            "config.project_config.config.get_args", return_value=self.mock_args
+        ).start()
 
         # Initialize both singletons, TODO: consider using mocking here too
-        BusInterface.initialize(self.mock_logger)       
+        BusInterface.initialize(self.mock_logger)
         L1Interface.initialize(self.mock_logger)
-
 
         # Setup patches for external dependencies
         # Note: We're patching the module-level functions, not the class methods
         self.bus_op_patcher = patch("cache.bus_interface.BusInterface.bus_operation")
-        self.get_snoop_patcher = patch("cache.bus_interface.BusInterface.get_snoop_result")
-        self.put_snoop_patcher = patch("cache.bus_interface.BusInterface.put_snoop_result")
-        self.message_to_l1_patcher = patch("cache.l1_interface.L1Interface.message_to_cache")
+        self.get_snoop_patcher = patch(
+            "cache.bus_interface.BusInterface.get_snoop_result"
+        )
+        self.put_snoop_patcher = patch(
+            "cache.bus_interface.BusInterface.put_snoop_result"
+        )
+        self.message_to_l1_patcher = patch(
+            "cache.l1_interface.L1Interface.message_to_cache"
+        )
 
         # Start all patches
         self.mock_bus_op = self.bus_op_patcher.start()
         self.mock_get_snoop = self.get_snoop_patcher.start()
         self.mock_put_snoop = self.put_snoop_patcher.start()
         self.mock_l1_message = self.message_to_l1_patcher.start()
-        
+
         # Set default return value for get_snoop_result
         self.mock_get_snoop.return_value = SnoopResult.NOHIT
 
         # Create controller instance with mock logger and mock dependencies
         self.controller = MESICoherenceController()
-    
-        
 
     def tearDown(self):
         # Stop any patches done during the test
@@ -75,7 +75,9 @@ class TestMESIProtocol(unittest.TestCase):
         self.mock_get_snoop.return_value = SnoopResult.NOHIT
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.INVALID, address, is_processor_write=False)
+        next_state = self.controller.handle_processor_request(
+            MESIState.INVALID, address, is_processor_write=False
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_called_with(BusOp.READ, 0x1000)
@@ -83,9 +85,11 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_called_with(0x1000)
 
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
+
         # Assert state transition: INVALID -> EXCLUSIVE
         self.assertEqual(next_state, MESIState.EXCLUSIVE)
-
 
     def test_processor_read_invalid_and_hit(self):
         """
@@ -95,13 +99,18 @@ class TestMESIProtocol(unittest.TestCase):
         self.mock_get_snoop.return_value = SnoopResult.HIT
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.INVALID, address, is_processor_write=False)
+        next_state = self.controller.handle_processor_request(
+            MESIState.INVALID, address, is_processor_write=False
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_called_with(BusOp.READ, 0x1000)
 
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_called_with(0x1000)
+
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: INVALID -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
@@ -114,7 +123,9 @@ class TestMESIProtocol(unittest.TestCase):
         self.mock_get_snoop.return_value = SnoopResult.HITM
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.INVALID, address, is_processor_write=False)
+        next_state = self.controller.handle_processor_request(
+            MESIState.INVALID, address, is_processor_write=False
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_called_with(BusOp.READ, 0x1000)
@@ -122,9 +133,11 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_called_with(0x1000)
 
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
+
         # Assert state transition: INVALID -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
-
 
     def test_processor_write_invalid_and_nohit(self):
         """
@@ -134,13 +147,18 @@ class TestMESIProtocol(unittest.TestCase):
         self.mock_get_snoop.return_value = SnoopResult.NOHIT
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.INVALID, address, is_processor_write=True)
+        next_state = self.controller.handle_processor_request(
+            MESIState.INVALID, address, is_processor_write=True
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_called_with(BusOp.RWIM, 0x1000)
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
+
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: INVALID -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
@@ -153,7 +171,9 @@ class TestMESIProtocol(unittest.TestCase):
         self.mock_get_snoop.return_value = SnoopResult.HIT
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.INVALID, address, is_processor_write=True)
+        next_state = self.controller.handle_processor_request(
+            MESIState.INVALID, address, is_processor_write=True
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_called_with(BusOp.RWIM, 0x1000)
@@ -161,9 +181,11 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snop result was checked
         self.mock_get_snoop.assert_not_called()
 
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
+
         # Assert state transition: INVALID -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
-
 
     def test_processor_read_shared(self):
         """
@@ -173,13 +195,18 @@ class TestMESIProtocol(unittest.TestCase):
         self.mock_get_snoop.return_value = SnoopResult.HIT
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.SHARED, address, is_processor_write=False)
+        next_state = self.controller.handle_processor_request(
+            MESIState.SHARED, address, is_processor_write=False
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_not_called()
 
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_not_called()
+
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: SHARED -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
@@ -191,7 +218,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.SHARED, address, is_processor_write=True)
+        next_state = self.controller.handle_processor_request(
+            MESIState.SHARED, address, is_processor_write=True
+        )
 
         # Check that the bus operation was called with the correct arguments
         self.mock_bus_op.assert_called_with(BusOp.INVALIDATE, 0x1000)
@@ -209,13 +238,18 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.EXCLUSIVE, address, is_processor_write=False)
+        next_state = self.controller.handle_processor_request(
+            MESIState.EXCLUSIVE, address, is_processor_write=False
+        )
 
         # Check that the bus operation was not called
         self.mock_bus_op.assert_not_called()
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
+
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: EXCLUSIVE -> EXCLUSIVE
         self.assertEqual(next_state, MESIState.EXCLUSIVE)
@@ -227,13 +261,20 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.EXCLUSIVE, address, is_processor_write=True)
+        next_state = self.controller.handle_processor_request(
+            MESIState.EXCLUSIVE, address, is_processor_write=True
+        )
 
         # Check that the bus operation was not called, silent upgrade
         self.mock_bus_op.assert_not_called()
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
+
+        # Check that sent line was not called
+        # L1 is write through on first write, so L1 and L2 will have modified line at the
+        # same time
+        self.mock_l1_message.assert_not_called()
 
         # Assert state transition: EXCLUSIVE -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
@@ -245,13 +286,19 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.MODIFIED, address, is_processor_write=True)
+        next_state = self.controller.handle_processor_request(
+            MESIState.MODIFIED, address, is_processor_write=True
+        )
 
         # Check that the bus operation was not called
         self.mock_bus_op.assert_not_called()
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
+
+        # Check that the L1 cache was sent send line message as write request to L2 cache
+        # means miss in L1 cache and L2 cache has the data
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: MODIFIED -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
@@ -263,13 +310,18 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_processor_request(MESIState.MODIFIED, address, is_processor_write=False)
+        next_state = self.controller.handle_processor_request(
+            MESIState.MODIFIED, address, is_processor_write=False
+        )
 
         # Check that the bus operation was not called
         self.mock_bus_op.assert_not_called()
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
+
+        # Check that the L1 cache was sent send line message
+        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: MODIFIED -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
@@ -284,7 +336,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.INVALID, BusOp.READ, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.INVALID, BusOp.READ, address
+        )
 
         # Check that the snoop result was put
         self.mock_put_snoop.assert_called_with(address, SnoopResult.NOHIT)
@@ -299,7 +353,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.INVALID, BusOp.WRITE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.INVALID, BusOp.WRITE, address
+        )
 
         # Check that the snoop result was not put
         self.mock_put_snoop.assert_called_with(address, SnoopResult.NOHIT)
@@ -314,7 +370,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.INVALID, BusOp.RWIM, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.INVALID, BusOp.RWIM, address
+        )
 
         # Check that the snoop result was not put
         self.mock_put_snoop.assert_called_with(address, SnoopResult.NOHIT)
@@ -329,7 +387,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.INVALID, BusOp.INVALIDATE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.INVALID, BusOp.INVALIDATE, address
+        )
 
         # Check that the snoop result was not put
         self.mock_put_snoop.assert_called_with(address, SnoopResult.NOHIT)
@@ -354,13 +414,15 @@ class TestMESIProtocol(unittest.TestCase):
 
     def test_snoop_shared_bus_write(self):
         """
-        Test handling a snooped bus write operation for a cacheline in SHARED state, 
+        Test handling a snooped bus write operation for a cacheline in SHARED state,
         this would never happpen under MESI protocol but might happen in a trace file.
         """
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.SHARED, BusOp.WRITE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.SHARED, BusOp.WRITE, address
+        )
 
         # Check that the snoop result was not put
         self.mock_put_snoop.assert_not_called()
@@ -368,8 +430,8 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the L1 cache was sent invalidate message
         self.mock_l1_message.assert_not_called()
 
-        # Assert state transition: SHARED -> INVALID
-        # TODO: Not sure if this is how we'd want to handle this corner case
+        # Assert state transition: SHARED -> SHARED
+        # CORNER CASE: This would never happen under MESI protocol, test will generate a warning
         self.assertEqual(next_state, MESIState.SHARED)
 
     def test_snoop_shared_bus_rwim(self):
@@ -397,7 +459,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.SHARED, BusOp.INVALIDATE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.SHARED, BusOp.INVALIDATE, address
+        )
 
         # Check that the snoop result was called with HIT
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HIT)
@@ -408,7 +472,6 @@ class TestMESIProtocol(unittest.TestCase):
         # Assert state transition: SHARED -> INVALID
         self.assertEqual(next_state, MESIState.INVALID)
 
-
     def test_snoop_modified_bus_read(self):
         """
         Test handling a snooped bus read operation for a cacheline in MODIFIED state
@@ -416,7 +479,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.MODIFIED, BusOp.READ, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.MODIFIED, BusOp.READ, address
+        )
 
         # Check that the snoop result was put with HITM
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HITM)
@@ -437,7 +502,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.MODIFIED, BusOp.RWIM, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.MODIFIED, BusOp.RWIM, address
+        )
 
         # Check that the snoop result was put with HITM
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HITM)
@@ -448,7 +515,7 @@ class TestMESIProtocol(unittest.TestCase):
         # In sequence of calls, first get line and then invalidate
         expected_l1_calls = [
             unittest.mock.call(CacheMessage.GETLINE, address),
-            unittest.mock.call(CacheMessage.INVALIDATELINE, address)
+            unittest.mock.call(CacheMessage.INVALIDATELINE, address),
         ]
 
         # Check that the L1 cache was sent getline and invalidate messages
@@ -464,7 +531,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.MODIFIED, BusOp.INVALIDATE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.MODIFIED, BusOp.INVALIDATE, address
+        )
 
         # Check that the snoop result was put with HITM
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HITM)
@@ -475,7 +544,7 @@ class TestMESIProtocol(unittest.TestCase):
         # In sequence of calls, first get line and then invalidate
         expected_l1_calls = [
             unittest.mock.call(CacheMessage.GETLINE, address),
-            unittest.mock.call(CacheMessage.INVALIDATELINE, address)
+            unittest.mock.call(CacheMessage.INVALIDATELINE, address),
         ]
 
         # Check that the L1 cache was sent getline and invalidate messages
@@ -487,17 +556,19 @@ class TestMESIProtocol(unittest.TestCase):
     def test_snoop_modified_bus_write(self):
         """
         Test handling a snooped bus write operation for a cacheline in MODIFIED state
-        Note: This would never happen under MESI protocol, but test if for completeness 
-        of all cases. Although it would happen under MESI protocol, the trace file may generate 
-        this scenario
+        Note: This would never happen under MESI protocol, but test it for completeness
+        of all cases. Although it would happen under MESI protocol, the trace file may generate
+        this scenario. This test should generate a warning to stdout.
         """
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.MODIFIED, BusOp.WRITE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.MODIFIED, BusOp.WRITE, address
+        )
 
         # Assert state transition: MODIFIED -> MODIFIED
-        # TODO: Not sure if this is how we'd want to handle this corner case
+        # CONER CASE: This would never happen under MESI protocol, test will generate a warning
         self.assertEqual(next_state, MESIState.MODIFIED)
 
     def test_snoop_exclusive_bus_read(self):
@@ -507,7 +578,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.EXCLUSIVE, BusOp.READ, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.EXCLUSIVE, BusOp.READ, address
+        )
 
         # Check that the snoop result was put with HIT
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HIT)
@@ -522,7 +595,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.EXCLUSIVE, BusOp.RWIM, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.EXCLUSIVE, BusOp.RWIM, address
+        )
 
         # Check that the snoop result was put with HIT
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HIT)
@@ -540,7 +615,9 @@ class TestMESIProtocol(unittest.TestCase):
         address = 0x1000
 
         # Call the function under test
-        next_state = self.controller.handle_snoop(MESIState.EXCLUSIVE, BusOp.INVALIDATE, address)
+        next_state = self.controller.handle_snoop(
+            MESIState.EXCLUSIVE, BusOp.INVALIDATE, address
+        )
 
         # Check that the snoop result was put with HIT
         self.mock_put_snoop.assert_called_with(address, SnoopResult.HIT)
@@ -550,6 +627,7 @@ class TestMESIProtocol(unittest.TestCase):
 
         # Assert state transition: EXCLUSIVE -> INVALID
         self.assertEqual(next_state, MESIState.INVALID)
-  
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     unittest.main()

@@ -95,36 +95,36 @@ class TestCacheSet(unittest.TestCase):
         self.cache_set._CacheSetPLRUMESI__update_plru(0)
         expected_state = 0b000_0000_0000_0000
         self.assertEqual(
-            self.cache_set.state, 
+            self.cache_set.state,
             expected_state,
-            f"After way 0 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+            f"After way 0 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}",
         )
 
         # Access second way
         self.cache_set._CacheSetPLRUMESI__update_plru(1)
         expected_state = 0b000_0000_1000_0000
         self.assertEqual(
-            self.cache_set.state, 
+            self.cache_set.state,
             expected_state,
-            f"After way 1 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+            f"After way 1 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}",
         )
 
         # Test way 8 access
         self.cache_set._CacheSetPLRUMESI__update_plru(8)
         expected_state = 0b000_0000_1000_0001
         self.assertEqual(
-            self.cache_set.state, 
+            self.cache_set.state,
             expected_state,
-            f"After way 8 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+            f"After way 8 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}",
         )
 
         # Test way 15 access
         self.cache_set._CacheSetPLRUMESI__update_plru(15)
         expected_state = 0b100_0000_1100_0101
         self.assertEqual(
-            self.cache_set.state, 
+            self.cache_set.state,
             expected_state,
-            f"After way 15 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}"
+            f"After way 15 access:\nExpected: {expected_state:015b}\nActual:   {self.cache_set.state:015b}",
         )
 
     def test_plru_behavior(self):
@@ -136,7 +136,26 @@ class TestCacheSet(unittest.TestCase):
         test_cases = [
             {
                 "name": "Sequential Access to All 16 Ways, then access 8, and 2 repectively",
-                "access_pattern": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 8, 2],
+                "access_pattern": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    8,
+                    2,
+                ],
                 "states": [
                     (0, 0b000_0000_0000_0000),  # After way 0
                     (1, 0b000_0000_1000_0000),  # After way 1
@@ -169,7 +188,7 @@ class TestCacheSet(unittest.TestCase):
                 # Execute access pattern and verify states
                 for i, way in enumerate(test_case["access_pattern"]):
                     self.cache_set._CacheSetPLRUMESI__update_plru(way)
-                    _ , expected_state = test_case["states"][i]
+                    _, expected_state = test_case["states"][i]
 
                     self.assertEqual(
                         self.cache_set.state,
@@ -190,7 +209,7 @@ class TestCacheSet(unittest.TestCase):
         Test PLRU behavior during a realistic allocation sequence.
         First fill all ways sequentially, then access ways 8 and 2,
         and finally allocate a new line which should evict way 12.
-        
+
         This test verifies:
         1. Initial allocation sequence uses ways in order
         2. PLRU bits are properly updated during allocations
@@ -198,17 +217,14 @@ class TestCacheSet(unittest.TestCase):
         4. Victim selection follows PLRU policy
         """
         # Fill all ways sequentially
-        allocation_sequence = [
-            {"tag": i, "expected_way": i} for i in range(16)
-        ]
+        allocation_sequence = [{"tag": i, "expected_way": i} for i in range(16)]
 
         # Perform initial allocations
         for i, alloc in enumerate(allocation_sequence):
             with self.subTest(step=f"Initial allocation {i}"):
                 # Allocate new line with EXCLUSIVE state
                 victim_line, way = self.cache_set.allocate(
-                    alloc["tag"], 
-                    state=MESIState.EXCLUSIVE
+                    alloc["tag"], state=MESIState.EXCLUSIVE
                 )
                 # Verify allocation
                 self.assertEqual(way, alloc["expected_way"])
@@ -230,14 +246,14 @@ class TestCacheSet(unittest.TestCase):
         self.assertEqual(way, 12, "PLRU should select way 12 for replacement")
         self.assertIsNotNone(victim_line, "Should have evicted a line")
         self.assertEqual(
-            victim_line.tag, 
-            0xC, 
-            f"Wrong line evicted, expected 0xC got {hex(victim_line.tag)}"
+            victim_line.tag,
+            0xC,
+            f"Wrong line evicted, expected 0xC got {hex(victim_line.tag)}",
         )
         self.assertEqual(
-            victim_line.mesi_state, 
-            MESIState.EXCLUSIVE, 
-            "Evicted line should have been in EXCLUSIVE state"
+            victim_line.mesi_state,
+            MESIState.EXCLUSIVE,
+            "Evicted line should have been in EXCLUSIVE state",
         )
 
     def test_print_set(self):
@@ -255,24 +271,24 @@ class TestCacheSet(unittest.TestCase):
         cache_set.allocate(0xDEF0, MESIState.INVALID)
         cache_set.print_set()  # Should print the valid lines
 
-
-    def test_mesi_state_descriptor(self): 
-            # Create a fresh cache set
+    def test_mesi_state_descriptor(self):
+        # Create a fresh cache set
         cache_set = CacheSetPLRUMESI(num_ways=4)
-        
+
         # Allocate a line in EXCLUSIVE state
         cache_set.allocate(0x1234, state=MESIState.EXCLUSIVE)
-        
+
         # Test getting state
         self.assertEqual(cache_set.mesi_state[0], MESIState.EXCLUSIVE)
-        
+
         # Test setting state
         cache_set.mesi_state[0] = MESIState.MODIFIED  # EXCLUSIVE -> MODIFIED ok
         self.assertEqual(cache_set.mesi_state[0], MESIState.MODIFIED)
-        
+
         # Test invalid way index
         with self.assertRaises(IndexError):
             _ = cache_set.mesi_state[4]  # Way 4 doesn't exist in 4-way cache
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

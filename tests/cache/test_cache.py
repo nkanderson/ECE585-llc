@@ -98,7 +98,6 @@ class TestCache(unittest.TestCase):
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
             self.cache.pr_write(test_addresses[i % 3])
-            
 
         self.assertEqual(self.cache.statistics.cache_reads, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
@@ -212,10 +211,13 @@ class TestCache(unittest.TestCase):
         for addr in added_lines:
             # Verify lines are present
             line = self.cache.lookup_line(addr)
-            self.assertIsNotNone(line, f"Cache line for address {hex(addr)} should be present")
+            self.assertIsNotNone(
+                line, f"Cache line for address {hex(addr)} should be present"
+            )
 
         # Reset mock logger and verify it gets called to print cache
         self.mock_logger.reset_mock()
         self.cache.print_cache()
-        self.assertTrue(self.mock_logger.log.called, "Logger should be called to print cache")
-        
+        self.assertTrue(
+            self.mock_logger.log.called, "Logger should be called to print cache"
+        )
