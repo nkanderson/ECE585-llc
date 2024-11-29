@@ -1,5 +1,7 @@
+import re
 import unittest
-from common.constants import MESIState
+from callee import Regex
+from common.constants import MESIState, LogLevel
 from utils.event_handler import handle_event
 from tests.integration.integration_setup import IntegrationSetup
 
@@ -42,6 +44,18 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
 
         # Event 0: Read miss at self.nohit_addr (gets line in E state)
         handle_event(self.cache, self.trace_event, self.nohit_addr)
+        # FIXME: Enable this one we've updated the code to send this message
+        # self.mock_logger.assert_called_with(
+        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
+        # )
+
+        # Check that a bus operation was issued, once per read event
+        # with either the name (read) or the operation ID number
+        self.mock_logger.log.assert_any_call(
+            LogLevel.NORMAL,
+            Regex(r".*busop.*(read|1).*", flags=re.IGNORECASE),
+        )
+
         expected_misses += 1
         expected_reads += 1
         self.check_line_state(self.nohit_addr, MESIState.EXCLUSIVE)
@@ -51,6 +65,11 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         expected_hits += 1
         expected_reads += 1
         self.check_line_state(self.nohit_addr, MESIState.EXCLUSIVE)
+
+        # The second read event should not generate a bus operation, because
+        # it was a hit to an exclusive line. So we'll test that there's only
+        # been 1 of these bus operations issued in total.
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*busop.*(read|1).*")
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, expected_reads)
@@ -80,6 +99,17 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.nohit_addr)
         self.check_line_state(self.nohit_addr, MESIState.MODIFIED)
 
+        # FIXME: Enable this one we've updated the code to send this message
+        # We may want to check for multiple calls to sendline here instead
+        # of just the one
+        # self.mock_logger.assert_called_with(
+        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
+        # )
+
+        # Only the first read request should have resulted in a READ
+        # bus operation.
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*busop.*(read|1).*")
+
         # Assertions for statistics
         # As an alternative to the above that accumulates the expected
         # stats values, we can hardcode them here, which may be more
@@ -106,6 +136,17 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.hit_addr)
         self.check_line_state(self.hit_addr, MESIState.SHARED)
 
+        # FIXME: Enable this one we've updated the code to send this message
+        # We may want to check for multiple calls to sendline here instead
+        # of just the one
+        # self.mock_logger.assert_called_with(
+        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
+        # )
+
+        # Only the first read request should have resulted in a READ
+        # bus operation.
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*busop.*(read|1).*")
+
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 2)
         self.assertEqual(self.cache.statistics.cache_writes, 0)
@@ -125,6 +166,14 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         # (with write-back) and our cache snarfs it
         handle_event(self.cache, self.trace_event, self.hitm_addr)
         self.check_line_state(self.hitm_addr, MESIState.SHARED)
+
+        # FIXME: Enable this one we've updated the code to send this message
+        # self.mock_logger.assert_called_with(
+        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
+        # )
+
+        # Check for a single READ bus operation
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*busop.*(read|1).*")
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 1)
@@ -154,6 +203,15 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         # One more read to trigger an eviction of a clean line
         handle_event(self.cache, self.trace_event, address + increment)
 
+        # FIXME: Enable this one we've updated the code to send this message
+        # Check for however many sendline events we need (likely 17)
+        # self.mock_logger.assert_called_with(
+        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
+        # )
+
+        # Check for one READ bus operation per cache miss
+        self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(read|1).*", 17)
+
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 17)
         self.assertEqual(self.cache.statistics.cache_writes, 0)
@@ -181,6 +239,18 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
 
         # One more read to trigger an eviction of a dirty line
         handle_event(self.cache, self.trace_event, address + increment)
+
+        # FIXME: Enable this one we've updated the code to send this message
+        # Check for however many sendline events we need (likely 17)
+        # self.mock_logger.assert_called_with(
+        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
+        # )
+
+        # Check for one READ bus operation per cache miss
+        self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(rwim|4).*", 16)
+        # FIXME: Check functionality of code for this case - the test found 4
+        # matching calls to this bus op read event. Is that correct?
+        # self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(read|1).*", 1)
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 1)
