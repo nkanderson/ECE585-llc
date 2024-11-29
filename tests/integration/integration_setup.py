@@ -47,6 +47,10 @@ class IntegrationSetup(unittest.TestCase):
             "config.project_config.config.get_args", return_value=cls.mock_args
         ).start()
 
+        # Need to ensure we're using new singleton instances
+        # that have the current mock_logger
+        BusInterface._bus_instance = None
+        L1Interface._l1_instance = None
         BusInterface.initialize(cls.mock_logger)
         L1Interface.initialize(cls.mock_logger)
 
@@ -62,7 +66,7 @@ class IntegrationSetup(unittest.TestCase):
 
     # Teardown that needs to happen after *each* test is run
     def tearDown(self):
-        pass
+        self.mock_logger.reset_mock()
 
     # Helper function to check MESI state
     def check_line_state(self, addr, expected_state):
