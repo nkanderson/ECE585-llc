@@ -1,3 +1,5 @@
+import warnings
+
 from cache.bus_interface import bus_operation, get_snoop_result, put_snoop_result
 from cache.l1_interface import message_to_l1_cache
 from common.constants import BusOp, CacheMessage, MESIState, SnoopResult
@@ -11,13 +13,13 @@ class MESICoherenceController:
         Handles processor read request
         return: next state of the cacheline
         """
-        # Based on project requirements bus operation will return void, so
-        # we need to check snoop result individual. TODO: Check if this is correct?
-        snoop_result = get_snoop_result(address)
 
         if current_state == MESIState.INVALID and not is_processor_write:
             bus_operation(BusOp.READ, address)
-
+            # Based on project requirements bus operation will return void, so
+            # we need to check snoop result individual. TODO: Check if this is correct?
+            snoop_result = get_snoop_result(address)
+            message_to_l1_cache(CacheMessage.SENDLINE, address)
             if snoop_result in [SnoopResult.HIT, SnoopResult.HITM]:
                 # Other cache will provide modified data, assume this happens automatically (per Mark's guidance)
                 # Other LLC will flush the data, we will snarf it, making our state SHARED
@@ -26,19 +28,33 @@ class MESICoherenceController:
             else:  # SnoopResult.NOHIT
                 return MESIState.EXCLUSIVE
 
+        elif (
+            current_state in [MESIState.EXCLUSIVE, MESIState.SHARED, MESIState.MODIFIED]
+            and not is_processor_write
+        ):
+
+            # No bus operation needed, stay in current state but send line to L1
+            message_to_l1_cache(CacheMessage.SENDLINE, address)
+            return current_state
+
         elif current_state == MESIState.INVALID and is_processor_write:
             bus_operation(BusOp.RWIM, address)  # Bus Read for ownership
+            message_to_l1_cache(CacheMessage.SENDLINE, address)
             return MESIState.MODIFIED
 
         elif current_state == MESIState.SHARED and is_processor_write:
             bus_operation(BusOp.INVALIDATE, address)  # Bus Upgrade
             return MESIState.MODIFIED
 
-        elif current_state == MESIState.EXCLUSIVE and is_processor_write:
-            # No bus operation needed, just update state
+        elif (
+            current_state in [MESIState.MODIFIED, MESIState.EXCLUSIVE]
+            and is_processor_write
+        ):
+            # No bus operation needed, move or state in modified but send line to L1
+            message_to_l1_cache(CacheMessage.SENDLINE, address)
             return MESIState.MODIFIED
 
-        else:  # current_state in [MESIState.SHARED, MESIState.MODIFIED, MESIState.EXCLUSIVE] && not is_processor_write
+        else:  # Default case for no state change, likely no possible case for this
             return current_state  # No state change
 
     def handle_snoop(
@@ -50,6 +66,19 @@ class MESICoherenceController:
             return MESIState.INVALID
 
         if bus_op == BusOp.WRITE:  # Other LLC is writing to the address
+            if current_state in [
+                MESIState.SHARED,
+                MESIState.EXCLUSIVE,
+                MESIState.MODIFIED,
+            ]:
+                warnings.warn(
+                    f"Not possible WRITE-BACK operation on address \
+                    {address:08x} in {current_state.name} state of our LLC",
+                    RuntimeWarning,
+                )
+                # Ignore not possible WRITE-BACK operation return current state
+                return current_state
+            # else:
             return current_state  # NOP
 
         if current_state == MESIState.MODIFIED:
