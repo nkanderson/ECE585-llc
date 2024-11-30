@@ -139,12 +139,14 @@ class TestMESIProtocol(unittest.TestCase):
         # Assert state transition: INVALID -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
 
-    def test_processor_write_invalid_and_nohit(self):
+    def test_processor_write_invalid(self):
         """
-        Test handling a processor write request for a cacheline in INVALID state and NOHIT snoop result
+        Test handling a processor write request for a cacheline in INVALID state
+        NOTE: Snoop results do not effect the transistion from INVALID to MODIFIED
+        on a write, we assume that other caches perform the correct operations
+        when they see a RWIM Bus Operation.  
         """
         address = 0x1000
-        self.mock_get_snoop.return_value = SnoopResult.NOHIT
 
         # Call the function under test
         next_state = self.controller.handle_processor_request(
@@ -163,29 +165,6 @@ class TestMESIProtocol(unittest.TestCase):
         # Assert state transition: INVALID -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
 
-    def test_processor_write_invalid_and_hit(self):
-        """
-        Test handling a processor write request for a cacheline in INVALID state and HIT snoop result
-        """
-        address = 0x1000
-        self.mock_get_snoop.return_value = SnoopResult.HIT
-
-        # Call the function under test
-        next_state = self.controller.handle_processor_request(
-            MESIState.INVALID, address, is_processor_write=True
-        )
-
-        # Check that the bus operation was called with the correct arguments
-        self.mock_bus_op.assert_called_with(BusOp.RWIM, 0x1000)
-
-        # Check that the snop result was checked
-        self.mock_get_snoop.assert_not_called()
-
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
-
-        # Assert state transition: INVALID -> MODIFIED
-        self.assertEqual(next_state, MESIState.MODIFIED)
 
     def test_processor_read_shared(self):
         """
