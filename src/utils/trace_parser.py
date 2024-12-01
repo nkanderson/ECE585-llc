@@ -1,9 +1,11 @@
 import sys
+import warnings
 from pathlib import Path
 from typing import Optional, Tuple
 
-from common.constants import TraceCommand
+from common.constants import LogLevel, TraceCommand
 from config.project_config import DATA_DIRECTORY, DEFAULT_TRACE_FILE, ROOT_DIR, config
+from utils.cache_logger import CacheLogger
 
 
 class TraceFileParser:
@@ -19,40 +21,48 @@ class TraceFileParser:
         fd: File descriptor for the opened trace file
     """
 
-    def __init__(self, filename: Optional[str] = None):
+    def __init__(
+        self,
+        filename: Optional[str] = None,
+        logger: Optional[CacheLogger] = None,
+    ):
         """
         Initialize the parser with an optional filename.
 
         Args:
             filename (Optional[str]): Path to the trace file. If None, uses default.
         """
+        self.logger = logger if logger is not None else config.get_logger()
+
         self.fd = None
-        if filename is None:
-            print(
-                f"[INFO] - Using default file: {ROOT_DIR/DATA_DIRECTORY/DEFAULT_TRACE_FILE}"
-            )
-            self.filename = str(
-                ROOT_DIR / DATA_DIRECTORY / DEFAULT_TRACE_FILE
-            )  # Default as specified in project_config
-        else:
-            self.filename = self._validate_file_path(filename)
+        self.filename = self._get_valid_filepath(filename)
+        self.logger.log(LogLevel.DEBUG, f"Using trace file: {self.filename}")
 
     @staticmethod
-    def _validate_file_path(filepath: str) -> str:
+    def _get_valid_filepath(filepath: str) -> str:
         """
-        Validate and normalize the provided file path.
+        Validate the provided file path or return the default file path.
 
-        Raises:
-            ValueError: If the file path is invalid or file doesn't exist
+        Args:
+            filepath: Optional file path to validate
 
+        Raises RuntimeWarning if the file path provided is invalid or the file does not exist.
+
+        Returns:
+            str: Valid file path (either provided path or default path)
         """
+        if filepath is None:
+            return str(ROOT_DIR / DATA_DIRECTORY / DEFAULT_TRACE_FILE)
+
         try:
-            path = Path(filepath).resolve()  # Resolves symlinks and makes path absolute
-            if not path.is_file():
-                raise ValueError(f"File does not exist: {filepath}")
-            return str(path)
-        except Exception as e:
-            raise ValueError(f"Invalid file path: {filepath}") from e
+            path = Path(filepath).resolve()
+            if path.is_file():
+                return str(path)
+        except Exception:
+            pass
+
+        warnings.warn(f"Invalid file path: {filepath}. Using default trace file.")
+        return str(ROOT_DIR / DATA_DIRECTORY / DEFAULT_TRACE_FILE)
 
     def open(self) -> bool:
         """Open the trace file"""
@@ -95,7 +105,7 @@ class TraceFileParser:
         line = self.fd.readline()
         if not line:  # EOF, detects if line == ""
             self.close()
-            print("[INFO] : Trace Read Complete")
+            self.logger.log(LogLevel.DEBUG, "[COMPLETE] - End of trace file reached.")
             return None
 
         # Strip leading and trailing whitespace, and remove newline character
@@ -107,23 +117,37 @@ class TraceFileParser:
         try:
             # Split fields ->> [Operation] [Address]
             parts = line.split()
+
+            try:
+                op = TraceCommand(int(parts[0]))  # Cast to enum class
+            except (ValueError, IndexError):
+                warnings.warn(f"Invalid line format: {line.strip()}, reading next line")
+                return self.read_line()  # Recurse to next line
+
+            # handle RESET and PRINT commands
+            if op in (TraceCommand.CLEAR_CACHE, TraceCommand.PRINT_CACHE):
+                return op, None
+
+            # All other commands we need [Operation] [Address]
             if len(parts) < 2:
-                print(
-                    "[WARNING] : Invalid line read from trace, recursing to next line"
+                warnings.warn(
+                    f"Missing address for command {op.name} : {line.strip()}, reading next line"
+                )
+                return self.read_line()  # Recurse to next line
+
+            try:
+                addr = int(
+                    parts[1], 16
+                )  # Convert string to integer using base 16 (i.e. hex)
+                return op, addr
+            except ValueError:
+                warnings.warn(
+                    f"Invalid address format : {line.strip()}, reading next line"
                 )
                 return self.read_line()
 
-            op = TraceCommand(int(parts[0]))  # Cast to enum class
-            addr = int(
-                parts[1], 16
-            )  # Convert string to integer using base 16 (i.e. hex)
-            return op, addr
-
-        except ValueError:
-            print(f"[WARNING] : Invalid line format : {line.strip()}")
-            return self.read_line()
         except Exception as e:
-            print(f"[ERROR] : Couldn't parse line: {e}")
+            warnings.warn(f"Couldn't parse line: {e}, trying to read next line")
             return self.read_line()
 
     def __enter__(self):
@@ -142,9 +166,20 @@ class TraceFileParser:
 """
 
 
-# Small test for parser
 def main():
-    """Main entry point for the trace file parser utility"""
+    """
+    Test program for the TraceFileParser class.
+
+    Allows the TraceFileParser to be run directly as a script for testing
+    and debugging purposes. Accepts command line arguments for debug mode
+    and file selection.
+
+    Example Usage:
+        # From root directory
+        > PYTHONPATH=./src python -m src.utils.trace_parser --debug
+        # To specify a trace file
+        > PYTHONPATH=./src python -m src.utils.trace_parser --debug --file src/data/rwims.din
+    """
     config.initialize(sys.argv[1:])
 
     args = config.get_args()
@@ -157,7 +192,9 @@ def main():
                 op, addr = result
                 if args.debug:
                     print("[DEBUG] -Line read...")
-                    print(f"Operation: {op.value} {op.name:20} Address: 0x{addr:08x}")
+                    # Format address differently based on whether it's None
+                    addr_str = f"0x{addr:08x}" if addr is not None else "No Address"
+                    print(f"Operation: {op.value} {op.name:20} Address: {addr_str}")
     except ValueError as e:
         print(f"[ERROR] - {str(e)}")
         return 1
