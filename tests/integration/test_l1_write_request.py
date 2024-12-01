@@ -1,6 +1,4 @@
-import re
 import unittest
-from callee import Regex
 from common.constants import MESIState, LogLevel, TraceCommand
 from utils.event_handler import handle_event
 from tests.integration.integration_setup import IntegrationSetup
