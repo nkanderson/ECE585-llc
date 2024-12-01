@@ -29,7 +29,9 @@ class L1Interface:
 
     def message_to_cache(self, message: CacheMessage, address: int) -> None:
         """Send control message to L1 cache"""
-        self.logger.log(LogLevel.NORMAL, f"L2: {message.name}, Address: {address}")
+        self.logger.log(
+            LogLevel.NORMAL, f"L2: {message.name}, Address: 0x{address:08X}"
+        )
 
 
 def message_to_l1_cache(message: CacheMessage, address: int) -> None:
