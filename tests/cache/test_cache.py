@@ -5,7 +5,7 @@ from cache.bus_interface import BusInterface
 from cache.cache import AddressFields, Cache
 from cache.cache_set import CacheLine
 from cache.l1_interface import L1Interface
-from common.constants import MESIState
+from common.constants import MESIState, CacheMessage
 from config.cache_config import CacheConfig
 
 
@@ -33,7 +33,12 @@ class TestCache(unittest.TestCase):
         BusInterface.initialize(self.mock_logger)
         L1Interface.initialize(self.mock_logger)
 
+        self.mock_l1_message = patch(
+            "cache.l1_interface.L1Interface.message_to_cache"
+        ).start()
+
     def tearDown(self):
+        self.mock_logger.reset_mock()
         # Stop any patches done during the test
         patch.stopall()
 
@@ -81,7 +86,10 @@ class TestCache(unittest.TestCase):
 
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
-            self.cache.pr_read(test_addresses[i % 3])
+            addr = test_addresses[i % 3]
+            self.cache.pr_read(addr)
+            # Confirm line was sent to L1
+            self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, addr)
 
         self.assertEqual(self.cache.statistics.cache_writes, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
@@ -97,7 +105,10 @@ class TestCache(unittest.TestCase):
 
         # Generate 25 accesses to the cache, fill line after miss
         for i in range(accesses):
-            self.cache.pr_write(test_addresses[i % 3])
+            addr = test_addresses[i % 3]
+            self.cache.pr_write(addr)
+            # Confirm line was sent to L1
+            self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, addr)
 
         self.assertEqual(self.cache.statistics.cache_reads, 0)
         self.assertEqual(self.cache.statistics.cache_misses, expected_misses)
