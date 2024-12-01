@@ -40,9 +40,10 @@ def main():
                 if result is None:
                     break
                 op, addr = result
+                addr_str = f"0x{addr:08x}" if addr is not None else "No Address"
                 logger.log(
                     LogLevel.DEBUG,
-                    f"\nOperation: {op.value} {op.name:20} Address: 0x{addr:08x}",
+                    f"\nOperation: {op.value} {op.name:20} Address: {addr_str}",
                 )
                 handle_event(cache, op.value, addr)
 
