@@ -36,7 +36,7 @@ class TraceFileParser:
 
         self.fd = None
         self.filename = self._get_valid_filepath(filename)
-        self.logger.log(LogLevel.NORMAL, f"Using trace file: {self.filename}")
+        self.logger.log(LogLevel.DEBUG, f"Using trace file: {self.filename}")
 
     @staticmethod
     def _get_valid_filepath(filepath: str) -> str:
@@ -105,7 +105,7 @@ class TraceFileParser:
         line = self.fd.readline()
         if not line:  # EOF, detects if line == ""
             self.close()
-            self.logger.log(LogLevel.SILENT, "[COMPLETE] - End of trace file reached.")
+            self.logger.log(LogLevel.DEBUG, "[COMPLETE] - End of trace file reached.")
             return None
 
         # Strip leading and trailing whitespace, and remove newline character
