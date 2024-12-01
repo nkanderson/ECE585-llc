@@ -229,11 +229,13 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         # Confirm the L2 sendline message was issued for each L1 request
         self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 17)
 
-        # Check for one READ bus operation per cache miss
+        # Check for one RWIM bus operation per cache miss
         self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(rwim|4).*", 16)
-        # FIXME: Check functionality of code for this case - the test found 4
-        # matching calls to this bus op read event. Is that correct?
-        # self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(read|1).*", 1)
+
+        # Confirm bus op for read request was issued
+        self.assert_log_called_with_count(
+            LogLevel.NORMAL, r".*busop.*(read|1).*address", 1
+        )
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 1)
