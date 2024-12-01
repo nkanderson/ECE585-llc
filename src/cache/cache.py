@@ -111,11 +111,15 @@ class Cache:
 
     def pr_read(self, address: int) -> bool:
         """Processor side read request"""
-        return self.__processor_access(address, is_write=False)
+        hit = self.__processor_access(address, is_write=False)
+        message_to_l1_cache(CacheMessage.SENDLINE, address)
+        return hit
 
     def pr_write(self, address: int) -> bool:
         """Processor side write request"""
-        return self.__processor_access(address, is_write=True)
+        hit = self.__processor_access(address, is_write=True)
+        message_to_l1_cache(CacheMessage.SENDLINE, address)
+        return hit
 
     def __processor_access(self, address: int, is_write: bool) -> bool:
         """

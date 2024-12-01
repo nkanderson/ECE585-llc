@@ -85,9 +85,6 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_called_with(0x1000)
 
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
-
         # Assert state transition: INVALID -> EXCLUSIVE
         self.assertEqual(next_state, MESIState.EXCLUSIVE)
 
@@ -108,9 +105,6 @@ class TestMESIProtocol(unittest.TestCase):
 
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_called_with(0x1000)
-
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: INVALID -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
@@ -133,9 +127,6 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_called_with(0x1000)
 
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
-
         # Assert state transition: INVALID -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
 
@@ -144,7 +135,7 @@ class TestMESIProtocol(unittest.TestCase):
         Test handling a processor write request for a cacheline in INVALID state
         NOTE: Snoop results do not effect the transistion from INVALID to MODIFIED
         on a write, we assume that other caches perform the correct operations
-        when they see a RWIM Bus Operation.  
+        when they see a RWIM Bus Operation.
         """
         address = 0x1000
 
@@ -159,12 +150,8 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
 
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
-
         # Assert state transition: INVALID -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
-
 
     def test_processor_read_shared(self):
         """
@@ -183,9 +170,6 @@ class TestMESIProtocol(unittest.TestCase):
 
         # Check that the snoop result was checked
         self.mock_get_snoop.assert_not_called()
-
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: SHARED -> SHARED
         self.assertEqual(next_state, MESIState.SHARED)
@@ -227,9 +211,6 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
 
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
-
         # Assert state transition: EXCLUSIVE -> EXCLUSIVE
         self.assertEqual(next_state, MESIState.EXCLUSIVE)
 
@@ -249,11 +230,6 @@ class TestMESIProtocol(unittest.TestCase):
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
-
-        # Check that sent line was not called
-        # L1 is write through on first write, so L1 and L2 will have modified line at the
-        # same time
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: EXCLUSIVE -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
@@ -275,10 +251,6 @@ class TestMESIProtocol(unittest.TestCase):
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
 
-        # Check that the L1 cache was sent send line message as write request to L2 cache
-        # means miss in L1 cache and L2 cache has the data
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
-
         # Assert state transition: MODIFIED -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
 
@@ -298,9 +270,6 @@ class TestMESIProtocol(unittest.TestCase):
 
         # Check that the snoop result was not checked
         self.mock_get_snoop.assert_not_called()
-
-        # Check that the L1 cache was sent send line message
-        self.mock_l1_message.assert_called_with(CacheMessage.SENDLINE, address)
 
         # Assert state transition: MODIFIED -> MODIFIED
         self.assertEqual(next_state, MESIState.MODIFIED)
