@@ -19,7 +19,6 @@ class MESICoherenceController:
             # Based on project requirements bus operation will return void, so
             # we need to check snoop result individual. TODO: Check if this is correct?
             snoop_result = get_snoop_result(address)
-            message_to_l1_cache(CacheMessage.SENDLINE, address)
             if snoop_result in [SnoopResult.HIT, SnoopResult.HITM]:
                 # Other cache will provide modified data, assume this happens automatically (per Mark's guidance)
                 # Other LLC will flush the data, we will snarf it, making our state SHARED
@@ -33,13 +32,11 @@ class MESICoherenceController:
             and not is_processor_write
         ):
 
-            # No bus operation needed, stay in current state but send line to L1
-            message_to_l1_cache(CacheMessage.SENDLINE, address)
+            # No bus operation needed, stay in current state
             return current_state
 
         elif current_state == MESIState.INVALID and is_processor_write:
             bus_operation(BusOp.RWIM, address)  # Bus Read for ownership
-            message_to_l1_cache(CacheMessage.SENDLINE, address)
             return MESIState.MODIFIED
 
         elif current_state == MESIState.SHARED and is_processor_write:
@@ -50,8 +47,7 @@ class MESICoherenceController:
             current_state in [MESIState.MODIFIED, MESIState.EXCLUSIVE]
             and is_processor_write
         ):
-            # No bus operation needed, move or state in modified but send line to L1
-            message_to_l1_cache(CacheMessage.SENDLINE, address)
+            # No bus operation needed, move or stay in modified
             return MESIState.MODIFIED
 
         else:  # Default case for no state change, likely no possible case for this
