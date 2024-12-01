@@ -159,7 +159,7 @@ This is a processor side request from the L1 data cache (i.e. Misses in L1).
      * Increment write counter
      * Check MESI state of line
      * If state is Modified:
-         - This would mean that L2 has a modified entry that L1 has evicted. Since no other caches have requested the data, L2 has not flushed it to DRAM yet. TODO: Confirm that L1 write back on eviction works this way, versus writing all the way out to DRAM.
+         - This would mean that L2 has a modified entry that L1 has evicted at some point. Since no other caches have requested the data, L2 has not flushed it to DRAM yet.
          - Send data to L1 (SENDLINE)
      * If state is Exclusive:
          - Update state to M
@@ -179,12 +179,13 @@ This is a processor side request from the L1 data cache (i.e. Misses in L1).
         * Get `GetSnoopResult()`
             * If `HITM` wait for other cache to flush, then read in data
             * If `HIT` or `NOHIT`, read in data (other caches have to invalidate their copies)
+            * NOTE: For the purposes of our simulation, the above two cases behave the same: read in data immediately and assume other caches correctly invalidate their data (or write back in the HITM case)
         * Since L2 is write allocate, create a new entry and set it to state M
      * Upon receiving data, check victim row (if any)
         * If victim row modified, perform `BusOperation(WRITE, Address, SnoopResult)`
         * If `Shared` or `Exclusive` NOP
         * If Victim Row is in L1, send `message(EVICTLINE, Address);`
-     * Update PLRU access pattern? Does that happen on every new addition?
+     * Update PLRU access pattern
      * Send requested data `message(SENDLINE, Address)`
 #### Test Cases Required:
 1. Write hit to Modified line
@@ -195,16 +196,97 @@ This is a processor side request from the L1 data cache (i.e. Misses in L1).
 1. Write miss causing clean eviction (i.e NOP)
 1. Write miss causing dirty eviction (i.e BusOp, I think ??)
 #### Sample Trace Sequence:
-- TODO: Create examples, this is just a simple example
+1. Write to Exclusive line
 ```
-# Test read operations
+# Test write operations
 8 0        # Clear cache
-0 1000     # Cold miss read
-3 1000     # Another processor reads (makes Shared)
-0 1000     # Read to Shared line
-0 2000     # Read causing potential eviction
+0 1000     # Cold miss read (NOHIT, move to E state)
+1 1000     # Write to data
 9 0        # Verify final state
 ```
+
+2. Write to Modified line
+```
+# Test write operations
+8 0        # Clear cache
+1 1000     # Cold miss write (NOHIT, move to M state)
+1 1000     # Write to same data
+9 0        # Verify final state
+```
+
+3. Write to Shared line
+```
+# Test write operations
+8 0        # Clear cache
+0 1000     # Cold miss write (HIT, move to S state)
+1 1000     # Write to same data
+9 0        # Verify final state
+```
+
+4. Write miss to Modified line in another cache
+```
+# Test write operations
+8 0        # Clear cache
+1 1000     # Write to data returning a HITM snoop response
+9 0        # Verify final state
+```
+
+5. Write miss to shared line in another cache
+```
+# Test write operations
+8 0        # Clear cache
+1 1000     # Write to data returning a HIT snoop response
+9 0        # Verify final state
+```
+
+6. Write miss causing a clean eviction
+```
+# Test write operations
+8 0           # Clear cache
+0 0x00100002  # Way 0
+0 0x00200002  # Way 1
+0 0x00300002  # Way 2
+0 0x00400002  # Way 3
+0 0x00500002  # Way 4
+0 0x00600002  # Way 5
+0 0x00700002  # Way 6
+0 0x00800002  # Way 7
+0 0x00900002  # Way 8
+0 0x00A00002  # Way 9
+0 0x00B00002  # Way 10
+0 0x00C00002  # Way 11
+0 0x00D00002  # Way 12
+0 0x00E00002  # Way 13
+0 0x00F00002  # Way 14
+0 0x01000002  # Way 15
+1 0x01100002  # Write to data causing an eviction
+9 0           # Verify final state
+```
+
+7. Write miss causing a dirty eviction
+```
+# Test write operations
+8 0           # Clear cache
+1 0x00100002  # Way 0
+1 0x00200002  # Way 1
+1 0x00300002  # Way 2
+1 0x00400002  # Way 3
+1 0x00500002  # Way 4
+1 0x00600002  # Way 5
+1 0x00700002  # Way 6
+1 0x00800002  # Way 7
+1 0x00900002  # Way 8
+1 0x00A00002  # Way 9
+1 0x00B00002  # Way 10
+1 0x00C00002  # Way 11
+1 0x00D00002  # Way 12
+1 0x00E00002  # Way 13
+1 0x00F00002  # Way 14
+1 0x01000002  # Way 15
+1 0x01100002  # Write to data causing an eviction
+9 0           # Verify final state
+```
+
 
 ### Command 2 - Read request from L1 instruction cache
 
