@@ -44,10 +44,9 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
 
         # Event 0: Read miss at self.nohit_addr (gets line in E state)
         handle_event(self.cache, self.trace_event, self.nohit_addr)
-        # FIXME: Enable this one we've updated the code to send this message
-        # self.mock_logger.assert_called_with(
-        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
-        # )
+
+        # Confirm the L2 sendline message was issued
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*sendline.*")
 
         # Check that a bus operation was issued, once per read event
         # with either the name (read) or the operation ID number
@@ -99,12 +98,8 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.nohit_addr)
         self.check_line_state(self.nohit_addr, MESIState.MODIFIED)
 
-        # FIXME: Enable this one we've updated the code to send this message
-        # We may want to check for multiple calls to sendline here instead
-        # of just the one
-        # self.mock_logger.assert_called_with(
-        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
-        # )
+        # Confirm the L2 sendline message was issued for each L1 request
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 3)
 
         # Only the first read request should have resulted in a READ
         # bus operation.
@@ -136,12 +131,8 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.hit_addr)
         self.check_line_state(self.hit_addr, MESIState.SHARED)
 
-        # FIXME: Enable this one we've updated the code to send this message
-        # We may want to check for multiple calls to sendline here instead
-        # of just the one
-        # self.mock_logger.assert_called_with(
-        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
-        # )
+        # Confirm the L2 sendline message was issued for each L1 request
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 2)
 
         # Only the first read request should have resulted in a READ
         # bus operation.
@@ -167,10 +158,8 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.hitm_addr)
         self.check_line_state(self.hitm_addr, MESIState.SHARED)
 
-        # FIXME: Enable this one we've updated the code to send this message
-        # self.mock_logger.assert_called_with(
-        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
-        # )
+        # Confirm the L2 sendline message was issued
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*sendline.*")
 
         # Check for a single READ bus operation
         self.assert_log_called_once_with(LogLevel.NORMAL, r".*busop.*(read|1).*")
@@ -203,11 +192,8 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         # One more read to trigger an eviction of a clean line
         handle_event(self.cache, self.trace_event, address + increment)
 
-        # FIXME: Enable this one we've updated the code to send this message
-        # Check for however many sendline events we need (likely 17)
-        # self.mock_logger.assert_called_with(
-        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
-        # )
+        # Confirm the L2 sendline message was issued for each L1 request
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 17)
 
         # Check for one READ bus operation per cache miss
         self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(read|1).*", 17)
@@ -240,11 +226,8 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         # One more read to trigger an eviction of a dirty line
         handle_event(self.cache, self.trace_event, address + increment)
 
-        # FIXME: Enable this one we've updated the code to send this message
-        # Check for however many sendline events we need (likely 17)
-        # self.mock_logger.assert_called_with(
-        #     LogLevel.NORMAL, Regex(r".*L2.*sendline.*")
-        # )
+        # Confirm the L2 sendline message was issued for each L1 request
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 17)
 
         # Check for one READ bus operation per cache miss
         self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(rwim|4).*", 16)
