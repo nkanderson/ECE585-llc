@@ -1,7 +1,7 @@
 from typing import Optional
 
 from cache.cache import Cache
-from common.constants import LogLevel, BusOp
+from common.constants import BusOp, LogLevel
 from config.project_config import config
 
 
