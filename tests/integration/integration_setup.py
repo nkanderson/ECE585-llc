@@ -31,6 +31,14 @@ class IntegrationSetup(unittest.TestCase):
     hitm_addresses = [0x10000001, 0x20000005, 0x30000009, 0x4000000D]  # LSBs 01
     nohit_addresses = [0x10000002, 0x20000006, 0x3000000A, 0x4000000F]  # LSBs 10 or 11
 
+    # Addresses to fill a single 16-way set with lines in the exclusive state
+    # assumes 14-bit set index and 6-bit byte offset, resulting in shift of 20 bits
+    single_set_addresses = [0x00000002 + (i * (1 << 20)) for i in range(16)]
+
+    # Generate one address per set (total 2^14 sets)
+    # assumes 64 byte cache line size
+    all_sets_single_address = [0x00000002 + (i * 64) for i in range(1 << 14)]
+
     # Setup resources for all tests in the class
     @classmethod
     def setUpClass(cls):
