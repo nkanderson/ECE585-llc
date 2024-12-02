@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from cache.cache import Cache
 from config.cache_config import CacheConfig
+from common.constants import BusOp
 from utils.event_handler import handle_event
 
 
@@ -75,15 +76,21 @@ class TestEventHandler(unittest.TestCase):
 
     def test_handle_event_with_handle_snoop(self):
         """Test that handle_event appropriately calls cache.handle_snoop()."""
-        for opcode in [3, 4, 5, 6]:
-            with self.subTest(opcode=opcode):
+        opcode_map = [
+            (3, BusOp.READ),
+            (4, BusOp.WRITE),
+            (5, BusOp.RWIM),
+            (6, BusOp.INVALIDATE),
+        ]
+        for opcode, bus_op in opcode_map:
+            with self.subTest(bus_op=bus_op):
                 # Reset mock so that calls do not accumulate between
                 # different opcode tests
                 self.cache.handle_snoop.reset_mock()
                 handle_event(self.cache, opcode, addr=0x9ABC)
 
                 # Assert handle_snoop was called with the correct address
-                self.cache.handle_snoop.assert_called_once_with(opcode, 0x9ABC)
+                self.cache.handle_snoop.assert_called_once_with(bus_op, 0x9ABC)
 
                 # Ensure other methods are not called
                 self.cache.pr_read.assert_not_called()
