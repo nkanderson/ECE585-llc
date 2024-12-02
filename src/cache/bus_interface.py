@@ -56,7 +56,7 @@ class BusInterface:
         """Report our snoop result for operations from other caches"""
         self.logger.log(
             LogLevel.NORMAL,
-            f"Address: {address:08x}, Snoop Result: {snoop_result.name}",
+            f"SnoopResult: Address {address:08x}, SnoopResult: {snoop_result.name}",
         )
 
 

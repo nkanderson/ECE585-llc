@@ -6,7 +6,7 @@ from cache.cache import Cache
 from config.cache_config import CacheConfig
 from cache.bus_interface import BusInterface
 from cache.l1_interface import L1Interface
-from common.constants import LogLevel
+from common.constants import LogLevel, MESIState
 
 
 class IntegrationSetup(unittest.TestCase):
@@ -71,12 +71,17 @@ class IntegrationSetup(unittest.TestCase):
     # Helper function to check MESI state
     def check_line_state(self, addr, expected_state):
         line = self.cache.lookup_line(addr)
-        self.assertIsNotNone(line, f"Line at address {hex(addr)} not found in cache.")
-        self.assertEqual(
-            line.mesi_state,
-            expected_state,
-            f"Unexpected MESI state at address {hex(addr)}.",
-        )
+        if expected_state == MESIState.INVALID:
+            self.assertIsNone(line, f"Unexpected line at address {hex(addr)} in cache.")
+        else:
+            self.assertIsNotNone(
+                line, f"Line at address {hex(addr)} not found in cache."
+            )
+            self.assertEqual(
+                line.mesi_state,
+                expected_state,
+                f"Unexpected MESI state at address {hex(addr)}.",
+            )
 
     def assert_log_called_with_count(
         self, log_level: LogLevel, pattern: str, expected_count: int
