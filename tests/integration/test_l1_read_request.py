@@ -198,6 +198,9 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         # Check for one READ bus operation per cache miss
         self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(read|1).*", 17)
 
+        # Confirm the L2 message to L1 for evictline was issued
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*evictline.*", 1)
+
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 17)
         self.assertEqual(self.cache.statistics.cache_writes, 0)
@@ -236,6 +239,10 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         self.assert_log_called_with_count(
             LogLevel.NORMAL, r".*busop.*(read|1).*address", 1
         )
+
+        # Confirm the L2 messages to L1 for eviction were issued
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*getline.*", 1)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*evictline.*", 1)
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 1)

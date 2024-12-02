@@ -1,6 +1,4 @@
-import re
 import unittest
-from callee import Regex
 from common.constants import MESIState, LogLevel, TraceCommand
 from utils.event_handler import handle_event
 from tests.integration.integration_setup import IntegrationSetup
@@ -206,6 +204,9 @@ class TestCommandL1WriteRequest(IntegrationSetup):
             LogLevel.NORMAL, r".*busop.*(read|1).*address", 16
         )
 
+        # Confirm the L2 message to L1 for evictline was issued
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*evictline.*", 1)
+
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 16)
         self.assertEqual(self.cache.statistics.cache_writes, 1)
@@ -241,6 +242,10 @@ class TestCommandL1WriteRequest(IntegrationSetup):
         self.assert_log_called_with_count(
             LogLevel.NORMAL, r".*busop.*(rwim|4).*address", 17
         )
+
+        # Confirm the L2 messages to L1 for eviction were issued
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*getline.*", 1)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*evictline.*", 1)
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 0)

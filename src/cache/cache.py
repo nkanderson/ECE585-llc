@@ -276,6 +276,9 @@ class Cache:
             message_to_l1_cache(CacheMessage.EVICTLINE, address)
             # Perform writeback for modified data
             bus_operation(BusOp.WRITE, address)
+        else:
+            # Ensure L1 evicts line to maintain inclusivity
+            message_to_l1_cache(CacheMessage.EVICTLINE, address)
 
     def lookup_line(self, address: int) -> Optional[CacheLine]:
         """
