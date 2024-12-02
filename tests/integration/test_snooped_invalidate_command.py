@@ -12,30 +12,37 @@ class TestCommandSnoopedInvalidate(IntegrationSetup):
         
         self.trace_event = 6
 
-    def assert_line_invalid(self, address):
-        """
-        Assert that the line in the cache is invalid
-        """
-        line = self.cache.lookup_line(address)
-
-        if line is not None: 
-            raise AssertionError(f"Line at address {address:08x} is not invalid")
-
-
     def test_snoop_invalidate_clean_line(self):
         """
         Test that a snoop invalidate command to a clean line is handled correctly
+        Note: It might be impossible for Exclusive state to receive invalidate command
         """
-        address = 0x00000002  # Start with set 0, offset with NOHIT response
+        address = 0x00000002  # address with NOHIT response
 
         # Fill a cache line 
         handle_event(self.cache, 0, address)
+        self.check_line_state(address, MESIState.EXCLUSIVE)
 
         handle_event(self.cache, self.trace_event, address)   # HIT
 
         # Updated regex patterns to match actual output
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i)L2.*INVALIDATELINE.*")
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i).*Snoop Result: HIT.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*invalidateline.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*snoopresult*.*hit*")
+
+    def test_snoop_invalidate_clean_shared_line(self):
+        """
+        Test that a snoop invalidate command to a clean line in shared state is handled correctly
+        """
+        address = 0x00000004  # address with HIT response
+
+        # Fill a cache line 
+        handle_event(self.cache, 0, address)
+        self.check_line_state(address, MESIState.SHARED)
+
+        handle_event(self.cache, self.trace_event, address)   # HIT
+
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*invalidateline.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*snoopresult*.*hit*")
 
     def test_snoop_invalidate_dirty_line(self):
         """
@@ -48,15 +55,15 @@ class TestCommandSnoopedInvalidate(IntegrationSetup):
         handle_event(self.cache, self.trace_event, address)   # HITM
 
         # Checks the our cache puts the snoop result
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i).*Snoop Result: HITM.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*snoopresult.*hitm.*")
         # Chcek that we are getting most recent data from L1
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i)L2.*GETLINE.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*getline.*")
         # Check that we then invalidate line in L1
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i)L2.*INVALIDATELINE.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*invalidateline.*")
         # Check that we are performing a writeback
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i)BusOp.*WRITE.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"BusOp.*write.*")
         # Check that our cache no longer has the data
-        self.assert_line_invalid(address)
+        self.check_line_state(address, MESIState.INVALID)
 
     def test_snoop_invalidate_invalid_line(self):
         """
@@ -71,8 +78,10 @@ class TestCommandSnoopedInvalidate(IntegrationSetup):
         handle_event(self.cache, self.trace_event, address + increment) # MISS
 
         # Check that we are not doing anything except putting the snoop result
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"(?i)^Address: [0-9a-f]{8}, Snoop Result: NOHIT$")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r".*snoopresult.*nohit.*")
         self.check_line_state(address, MESIState.EXCLUSIVE) 
+
+    
 
 if __name__ == "__main__":
     unittest.main()
