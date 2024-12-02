@@ -1,7 +1,7 @@
 from typing import Optional
 
 from cache.cache import Cache
-from common.constants import LogLevel
+from common.constants import LogLevel, BusOp
 from config.project_config import config
 
 
@@ -34,12 +34,19 @@ def handle_event(
             cache.pr_read(addr)
 
         # 3: snooped read request
+        case 3:
+            cache.handle_snoop(BusOp.READ, addr)
         # 4: snooped write request
+        case 4:
+            # NOTE: This should be a no-op because the line in our cache
+            # should already be invalidated
+            cache.handle_snoop(BusOp.WRITE, addr)
         # 5: snooped read with intent to modify request
+        case 5:
+            cache.handle_snoop(BusOp.RWIM, addr)
         # 6: snooped invalidate command
-        case 3 | 4 | 5 | 6:
-            cache.handle_snoop(event_opcode, addr)
-
+        case 6:
+            cache.handle_snoop(BusOp.INVALIDATE, addr)
         # 8: clear the cache and reset all state
         case 8:
             cache.clear_cache()
