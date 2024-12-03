@@ -49,19 +49,24 @@ class Statistics:
         self.cache_misses += 1
 
     def print_stats(self, stream: TextIO = sys.stdout):
-        """Print formatted cache statistics to specified stream
-        Args:
-            stream (TextIO): Output stream (defaults to sys.stdout)
-        """
-        stats = f"""
-----------------------------------
-          Cache Statistics
-----------------------------------
-  Number of cache reads:  {self.cache_reads:<10}
-  Number of cache writes: {self.cache_writes:<10}
-  Number of cache hits:   {self.cache_hits:<10}
-  Number of cache misses: {self.cache_misses:<10}
-  Cache hit ratio:        {self.cache_hit_ratio:<9.5%}
-----------------------------------
-"""
-        print(stats, file=stream, flush=True)  # flush avoids buffered output
+        """Print formatted cache statistics to specified stream"""
+        # Basic ANSI color codes
+        BLUE = "\033[34m"
+        GREEN = "\033[32m"
+        YELLOW = "\033[33m"
+        RED = "\033[31m"
+        BOLD = "\033[1m"
+        RESET = "\033[0m"
+
+        DIVIDER = f"{BOLD}|{RESET}"
+
+        stats = (
+            f"{BOLD}Cache Stats: {RESET} "
+            f"Reads: {BLUE}{self.cache_reads:<2}{RESET} "
+            f"Writes: {BLUE}{self.cache_writes:<2}{RESET} {DIVIDER} "
+            f"Hits: {GREEN}{self.cache_hits:<2}{RESET} "
+            f"Misses: {RED}{self.cache_misses:<2}{RESET} {DIVIDER} "
+            f"Hit Ratio: {YELLOW}{self.cache_hit_ratio:.1%}{RESET}\n"
+        )
+
+        print(stats, file=stream, flush=True)

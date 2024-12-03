@@ -318,6 +318,11 @@ class Cache:
     def print_cache(self):
         """Print cache contents of only valid lines using the logger, this is in response to trace command 9"""
         header_printed = False
+        # ANSI Color
+        YELLOW = "\033[33m"
+        RESET = "\033[0m"
+        # Width of PLRU bits
+        plru_width = self.associativity - 1
 
         for index, cache_set in enumerate(self.sets):
             if cache_set is not None:
@@ -326,20 +331,23 @@ class Cache:
                 if valid_lines:  # If there are valid lines to print
                     if not header_printed:
                         header = (
-                            "\n-----------------------------"
-                            "\nWay  | Tag      | MESI State|"
+                            "-----------------------------"
+                            "\nWay  | Tag     | MESI State |"
                             "\n-----------------------------"
                         )
                         self.logger.log(LogLevel.SILENT, header)
                         header_printed = True
                     self.logger.log(
-                        LogLevel.SILENT, f"\nValid Lines in Set 0x{index:08x}"
+                        LogLevel.SILENT,
+                        f"Valid Lines in Set {YELLOW}0x{index:08x}{RESET}",
                     )
                     self.logger.log(
-                        LogLevel.SILENT, f"PLRU State Bits: {cache_set.state:b}"
+                        LogLevel.SILENT,
+                        f"PLRU State Bits: {cache_set.state:0{plru_width}b}",
                     )
                     self.logger.log(LogLevel.SILENT, "-----------------------------")
                     self.logger.log(LogLevel.SILENT, valid_lines)
+                    self.logger.log(LogLevel.SILENT, "-----------------------------")
 
     @property
     def __config_str(self) -> str:
@@ -357,3 +365,6 @@ Address Bits:
     Index: {self.index_bits}
     Byte Select: {self.byte_select_bits}
 """
+
+    def print_stats(self) -> None:
+        self.statistics.print_stats()
