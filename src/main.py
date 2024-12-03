@@ -46,6 +46,7 @@ def main():
                     f"\nOperation: {op.value} {op.name:20} Address: {addr_str}",
                 )
                 handle_event(cache, op.value, addr)
+                cache.print_stats()
 
     # Log a meaningful message and re-raise error to exit the program
     # with a non-zero exit code

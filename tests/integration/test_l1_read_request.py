@@ -46,7 +46,7 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.nohit_addr)
 
         # Confirm the L2 sendline message was issued
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*sendline.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2: (sendline|2).*")
 
         # Check that a bus operation was issued, once per read event
         # with either the name (read) or the operation ID number
@@ -99,7 +99,7 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         self.check_line_state(self.nohit_addr, MESIState.MODIFIED)
 
         # Confirm the L2 sendline message was issued for each L1 request
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 3)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (sendline|2).*", 3)
 
         # Only the first read request should have resulted in a READ
         # bus operation.
@@ -132,7 +132,7 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         self.check_line_state(self.hit_addr, MESIState.SHARED)
 
         # Confirm the L2 sendline message was issued for each L1 request
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 2)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (sendline|2).*", 2)
 
         # Only the first read request should have resulted in a READ
         # bus operation.
@@ -159,7 +159,7 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         self.check_line_state(self.hitm_addr, MESIState.SHARED)
 
         # Confirm the L2 sendline message was issued
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*sendline.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2: (sendline|2).*")
 
         # Check for a single READ bus operation
         self.assert_log_called_once_with(LogLevel.NORMAL, r".*busop.*(read|1).*")
@@ -193,13 +193,13 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, address + increment)
 
         # Confirm the L2 sendline message was issued for each L1 request
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 17)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (sendline|2).*", 17)
 
         # Check for one READ bus operation per cache miss
         self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(read|1).*", 17)
 
         # Confirm the L2 message to L1 for evictline was issued
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*evictline.*", 1)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (evictline|4).*", 1)
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 17)
@@ -230,7 +230,7 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         handle_event(self.cache, self.trace_event, address + increment)
 
         # Confirm the L2 sendline message was issued for each L1 request
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*sendline.*", 17)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (sendline|2).*", 17)
 
         # Check for one RWIM bus operation per cache miss
         self.assert_log_called_with_count(LogLevel.NORMAL, r".*busop.*(rwim|4).*", 16)
@@ -241,8 +241,8 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         )
 
         # Confirm the L2 messages to L1 for eviction were issued
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*getline.*", 1)
-        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2.*evictline.*", 1)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (getline|1).*", 1)
+        self.assert_log_called_with_count(LogLevel.NORMAL, r"l2: (evictline|4).*", 1)
 
         # Assertions for statistics
         self.assertEqual(self.cache.statistics.cache_reads, 1)

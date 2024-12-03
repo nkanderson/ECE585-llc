@@ -58,12 +58,12 @@ class TestSnoopedRWIMRequest(IntegrationSetup):
         handle_event(self.cache, self.trace_event, self.nohit_addr)
 
         # Confirm our cache put the snoop result on the bus and updated state
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"snoopresult.*(hitm|4)")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"snoopresult.*(hitm|2)")
         self.check_line_state(self.nohit_addr, MESIState.INVALID)
 
         # Confirm our cache retrieved the line from L1 and wrote it back
         # We assume the RWIM cache can snarf it
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2.*(getline|1).*address.*")
+        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2: (getline|1).*")
         self.assert_log_called_once_with(
             LogLevel.NORMAL, r"busop.*(write|2).*address.*"
         )

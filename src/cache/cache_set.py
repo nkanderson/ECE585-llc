@@ -302,7 +302,7 @@ class CacheSetPLRUMESI:
         if all(line.is_invalid() for line in self.ways):
             return  # Empty set
 
-        line_format = "{:3d}  | 0x{:06x} | {:9s} |"
+        line_format = "{:3d}  | 0x{:03X} | {:9s}  |"
         valid_lines = []
 
         for way_index, line in enumerate(self.ways):
