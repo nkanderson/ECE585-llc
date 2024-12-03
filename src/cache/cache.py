@@ -332,14 +332,14 @@ class Cache:
                     if not header_printed:
                         header = (
                             "-----------------------------"
-                            "\nWay  | Tag     | MESI State |"
+                            "\nWay  | Tag   | MESI State |"
                             "\n-----------------------------"
                         )
                         self.logger.log(LogLevel.SILENT, header)
                         header_printed = True
                     self.logger.log(
                         LogLevel.SILENT,
-                        f"Valid Lines in Set {YELLOW}0x{index:08x}{RESET}",
+                        f"Valid Lines in Set {YELLOW}0x{index:08X}{RESET}",
                     )
                     self.logger.log(
                         LogLevel.SILENT,

@@ -29,7 +29,7 @@ class BusInterface:
         snoop_result = self.get_snoop_result(address)
         self.logger.log(
             LogLevel.NORMAL,
-            f"BusOp: {bus_op.value}, Address: {address:08x}, Snoop Result: {snoop_result.value}",
+            f"BusOp: {bus_op.value}, Address: 0x{address:08X}, Snoop Result: {snoop_result.value}",
         )
 
     def get_snoop_result(self, address: int) -> SnoopResult:
@@ -56,7 +56,7 @@ class BusInterface:
         """Report our snoop result for operations from other caches"""
         self.logger.log(
             LogLevel.NORMAL,
-            f"SnoopResult: Address {address:08x}, SnoopResult: {snoop_result.value}",
+            f"SnoopResult: Address 0x{address:08X}, SnoopResult: {snoop_result.value}",
         )
 
 
