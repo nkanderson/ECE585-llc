@@ -72,8 +72,8 @@ class MESICoherenceController:
                 MESIState.MODIFIED,
             ]:
                 warnings.warn(
-                    f"Not possible WRITE-BACK operation on address"
-                    f" {address:08x} in {current_state.name} state of our LLC",
+                    f"{WARNING_COLOR}Not possible WRITE-BACK operation on address"
+                    f" {address:08x} in {current_state.name} state of our LLC{RESET_COLOR}",
                     RuntimeWarning,
                 )
                 # Ignore not possible WRITE-BACK operation return current state
