@@ -16,6 +16,7 @@ platformdirs==4.3.6
 pre_commit==4.0.1
 pycodestyle==2.12.1
 pyflakes==3.2.0
+pytest==7.4.4
 python-dotenv==1.0.1
 PyYAML==6.0.2
 setuptools==75.1.0
