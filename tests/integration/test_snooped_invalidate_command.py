@@ -47,6 +47,8 @@ class TestCommandSnoopedInvalidate(IntegrationSetup):
     def test_snoop_invalidate_dirty_line(self):
         """
         Test that a snoop invalidate command to a dirty line is handled correctly
+        Note: This is a not possible event under MESI protocol, our cache will ignore it but 
+        provides runtime warning to user. 
         """
         address = 0x00000002
 
@@ -54,16 +56,8 @@ class TestCommandSnoopedInvalidate(IntegrationSetup):
 
         handle_event(self.cache, self.trace_event, address)   # HITM
 
-        # Checks the our cache puts the snoop result
-        self.assert_log_called_once_with(LogLevel.NORMAL, r".*snoopresult.*(hitm|2).*")
-        # Chcek that we are getting most recent data from L1
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2: (getline|1).*")
-        # Check that we then invalidate line in L1
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"l2: (invalidateline|3).*")
-        # Check that we are performing a writeback
-        self.assert_log_called_once_with(LogLevel.NORMAL, r"BusOp: (write|2).*")
-        # Check that our cache no longer has the data
-        self.check_line_state(address, MESIState.INVALID)
+        # Check that our cache doesn't respond to the snoop command
+        self.check_line_state(address, MESIState.MODIFIED)
 
     def test_snoop_invalidate_invalid_line(self):
         """
