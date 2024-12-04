@@ -89,66 +89,111 @@ class TraceFileParser:
 
     def read_line(self) -> Optional[Tuple[TraceCommand, Optional[int]]]:
         """
-        Read and parse a single line from the trace file.
+        Read and parse one line at a time from the trace file.
+        """
+        while True:
+            line = self.fd.readline()
+            if not line:  # EOF
+                self.close()
+                self.logger.log(
+                    LogLevel.DEBUG, "[COMPLETE] - End of trace file reached."
+                )
+                return None
+
+            result = self._parse_line(line)
+            if result is not None:
+                return result
+
+    def read_in_chunks(self, chunk_size: int = 1024):
+        """
+        Generator that reads and parses the file in chunks of given size.
+
+        Args:
+            chunk_size (int): Size of each chunk in bytes.
+
+        Yields:
+            Tuple[TraceCommand, Optional[int]]: Parsed result from each valid line.
+        """
+        buffer = ""
+        while True:
+            chunk = self.fd.read(chunk_size)
+            if not chunk:
+                if buffer:
+                    # Process any remaining line in the buffer
+                    result = self._parse_line(buffer)
+                    if result:  # Only yield valid results
+                        yield result
+                self.close()
+                self.logger.log(
+                    LogLevel.DEBUG, "[COMPLETE] - End of trace file reached."
+                )
+                return
+
+            # NOTE: The buffer may contain a partial line at the end if the chunk
+            # split a line in the middle
+            buffer += chunk
+            lines = buffer.splitlines(keepends=False)
+
+            # Process all but the last line (it may be incomplete)
+            for line in lines[:-1]:
+                result = self._parse_line(line)
+                if result:  # Skip invalid lines
+                    yield result
+
+            # Handle the last line separately depending on whether it is complete
+            if chunk.endswith("\n"):
+                # If the chunk ends with a newline, the last line is complete
+                # or an EOF newline - either way, we should attempt to parse it
+                result = self._parse_line(lines[-1])
+                if result:
+                    yield result
+                buffer = ""  # Reset buffer since there's no partial line
+            else:
+                # Keep the last line in the buffer for the next chunk
+                buffer = lines[-1]
+
+    def _parse_line(self, line: str) -> Optional[Tuple[TraceCommand, Optional[int]]]:
+        """
+        Parse a single line from the trace file.
+
+        Args:
+            line (str): A single line from the trace file.
 
         Returns:
             Optional[Tuple[TraceCommand, Optional[int]]]: A tuple containing:
                 - TraceCommand: The type of cache operation
                 - int: The memory address in hexadecimal
-                Returns None if EOF is reached or if line is invalid.
-
-        Notes:
-            - Skips empty lines
-            - Recursively calls itself on invalid lines
-            - Each line should contain an operation code and hex address
+            Returns None if the line is invalid.
         """
-        line = self.fd.readline()
-        if not line:  # EOF, detects if line == ""
-            self.close()
-            self.logger.log(LogLevel.DEBUG, "[COMPLETE] - End of trace file reached.")
-            return None
-
         # Strip leading and trailing whitespace, and remove newline character
         line = line.strip()
         if not line:
-            # Blank line detected, go to next line
-            return self.read_line()
+            return None  # Skip blank lines
+
+        # Split fields ->> [Operation] [Address]
+        parts = line.split()
+        try:
+            op = TraceCommand(int(parts[0]))  # Cast to enum class
+        except (ValueError, IndexError):
+            warnings.warn(f"Invalid line format: {line}")
+            return None
+
+        # Handle commands without an address
+        if op in (TraceCommand.CLEAR_CACHE, TraceCommand.PRINT_CACHE):
+            return op, None
+
+        # Ensure an address is present for other commands
+        if len(parts) < 2:
+            warnings.warn(f"Missing address for command {op.name} : {line}")
+            return None
 
         try:
-            # Split fields ->> [Operation] [Address]
-            parts = line.split()
-
-            try:
-                op = TraceCommand(int(parts[0]))  # Cast to enum class
-            except (ValueError, IndexError):
-                warnings.warn(f"Invalid line format: {line.strip()}, reading next line")
-                return self.read_line()  # Recurse to next line
-
-            # handle RESET and PRINT commands
-            if op in (TraceCommand.CLEAR_CACHE, TraceCommand.PRINT_CACHE):
-                return op, None
-
-            # All other commands we need [Operation] [Address]
-            if len(parts) < 2:
-                warnings.warn(
-                    f"Missing address for command {op.name} : {line.strip()}, reading next line"
-                )
-                return self.read_line()  # Recurse to next line
-
-            try:
-                addr = int(
-                    parts[1], 16
-                )  # Convert string to integer using base 16 (i.e. hex)
-                return op, addr
-            except ValueError:
-                warnings.warn(
-                    f"Invalid address format : {line.strip()}, reading next line"
-                )
-                return self.read_line()
-
-        except Exception as e:
-            warnings.warn(f"Couldn't parse line: {e}, trying to read next line")
-            return self.read_line()
+            # Convert string to integer using base 16 (i.e. hex)
+            addr = int(parts[1], 16)
+            return op, addr
+        except ValueError:
+            warnings.warn(f"Invalid address format: {line}")
+            return None
 
     def __enter__(self):
         """Context manager for entry"""
