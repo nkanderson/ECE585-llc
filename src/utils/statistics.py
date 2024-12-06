@@ -66,7 +66,7 @@ class Statistics:
             f"Writes: {BLUE}{self.cache_writes:<2}{RESET} {DIVIDER} "
             f"Hits: {GREEN}{self.cache_hits:<2}{RESET} "
             f"Misses: {RED}{self.cache_misses:<2}{RESET} {DIVIDER} "
-            f"Hit Ratio: {YELLOW}{self.cache_hit_ratio:.1%}{RESET}\n"
+            f"Hit Ratio: {YELLOW}{self.cache_hit_ratio:.1%}{RESET}"
         )
 
         print(stats, file=stream, flush=True)
