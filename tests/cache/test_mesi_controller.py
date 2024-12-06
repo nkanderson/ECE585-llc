@@ -475,6 +475,7 @@ class TestMESIProtocol(unittest.TestCase):
     def test_snoop_modified_bus_invalidate(self):
         """
         Test handling a snooped bus invalidate operation for a cacheline in MODIFIED state
+        Note: This is a not possible event in the MESI protocol, our cache should ignore this event.
         """
         address = 0x1000
 
@@ -483,23 +484,8 @@ class TestMESIProtocol(unittest.TestCase):
             MESIState.MODIFIED, BusOp.INVALIDATE, address
         )
 
-        # Check that the snoop result was put with HITM
-        self.mock_put_snoop.assert_called_with(address, SnoopResult.HITM)
-
-        # Check that bus operation was called with WRITE
-        self.mock_bus_op.assert_called_with(BusOp.WRITE, address)
-
-        # In sequence of calls, first get line and then invalidate
-        expected_l1_calls = [
-            unittest.mock.call(CacheMessage.GETLINE, address),
-            unittest.mock.call(CacheMessage.INVALIDATELINE, address),
-        ]
-
-        # Check that the L1 cache was sent getline and invalidate messages
-        self.mock_l1_message.assert_has_calls(expected_l1_calls, any_order=False)
-
-        # Assert state transition: MODIFIED -> INVALID
-        self.assertEqual(next_state, MESIState.INVALID)
+        # Assert state transition: MODIFIED -> MODIFIED
+        self.assertEqual(next_state, MESIState.MODIFIED)
 
     def test_snoop_modified_bus_write(self):
         """

@@ -4,6 +4,10 @@ from cache.bus_interface import bus_operation, get_snoop_result, put_snoop_resul
 from cache.l1_interface import message_to_l1_cache
 from common.constants import BusOp, CacheMessage, MESIState, SnoopResult
 
+# Color for warning messages
+WARNING_COLOR = "\033[93m"  # Bright Yellow
+RESET_COLOR = "\033[0m"  # Reset color to default
+
 
 class MESICoherenceController:
     def handle_processor_request(
@@ -68,8 +72,8 @@ class MESICoherenceController:
                 MESIState.MODIFIED,
             ]:
                 warnings.warn(
-                    f"Not possible WRITE-BACK operation on address \
-                    {address:08x} in {current_state.name} state of our LLC",
+                    f"{WARNING_COLOR}Not possible WRITE-BACK operation on address"
+                    f" {address:08x} in {current_state.name} state of our LLC{RESET_COLOR}",
                     RuntimeWarning,
                 )
                 # Ignore not possible WRITE-BACK operation return current state
@@ -78,6 +82,14 @@ class MESICoherenceController:
             return current_state  # NOP
 
         if current_state == MESIState.MODIFIED:
+            if bus_op == BusOp.INVALIDATE:
+                warnings.warn(
+                    f"{WARNING_COLOR}Not possible bus upgrade command to modified line"
+                    f" {address:08x} in {current_state.name} state of our LLC{RESET_COLOR}",
+                    RuntimeWarning,
+                )
+                return current_state  # NOP
+
             self.__handle_modified_state_snoop(bus_op, address)
             # Invalidate if other cache is modifying, otherwise downgrade to SHARED
             return (
