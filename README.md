@@ -2,6 +2,27 @@
 
 ## Usage
 
+### Preparing the environment
+
+The cache simulator requires several Python packages as noted in requirements.txt. The simplest way to prepare your runtime environment without breaking things is to create a virtual envronment before installing the needed packages. To do so execute the following command in the ECE585-llc directory (the name of the virtual environment can be changed to your liking):
+
+```sh
+python -m venv ./venv
+```
+
+After successful creation you can then activate your new virtual environment with the command:
+
+```sh
+source venv/bin/activate
+```
+
+Next install the packages. You will need pip installed on your system:
+
+```sh
+pip install -r requirements.txt
+```
+You should now have a virtual environment configured to run the simulator.
+
 ### Running the program
 
 The following commands can be run from within the `src` directory of the project root, or the `app` directory if running in the Docker container.
