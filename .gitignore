@@ -8,3 +8,6 @@ __pycache__/
 
 # Ignore editor-specific settings
 .vscode/
+
+# Ignore large trace files
+src/data/large*.txt

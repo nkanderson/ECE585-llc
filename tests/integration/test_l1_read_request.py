@@ -1,7 +1,7 @@
 import re
 import unittest
 from callee import Regex
-from common.constants import MESIState, LogLevel
+from common.constants import MESIState, LogLevel, TraceCommand
 from utils.event_handler import handle_event
 from tests.integration.integration_setup import IntegrationSetup
 
@@ -249,6 +249,17 @@ class TestCommandL1ReadRequestData(IntegrationSetup):
         self.assertEqual(self.cache.statistics.cache_writes, 16)
         self.assertEqual(self.cache.statistics.cache_hits, 0)
         self.assertEqual(self.cache.statistics.cache_misses, 17)
+
+    def test_read_all_in_set(self):
+        # Read all tags in the set
+        for address in range(0x00000000, 0xFFF00001, 0x00100000):
+            handle_event(self.cache, TraceCommand.L1_DATA_READ, address)
+
+        # Assertions for statistics
+        self.assertEqual(self.cache.statistics.cache_reads, 1 << 12)
+        self.assertEqual(self.cache.statistics.cache_writes, 0)
+        self.assertEqual(self.cache.statistics.cache_hits, 0)
+        self.assertEqual(self.cache.statistics.cache_misses, 1 << 12)
 
 
 # In order to test events 0 and 2, we need to create a child class for

@@ -35,8 +35,7 @@ def main():
 
     try:
         with TraceFileParser(args.file) as parser:
-            while True:
-                result = parser.read_line()
+            for result in parser.read_in_chunks():
                 if result is None:
                     break
                 op, addr = result
