@@ -4,6 +4,12 @@
 
 ### Preparing the environment
 
+This project is currently using Python version 3.13.0. To install this version with [`pyenv`](https://github.com/pyenv/pyenv), use the following command:
+```sh
+pyenv install 3.13.0
+```
+The `.python-version` file in the base project directory will ensure `pyenv` selects the correct version when running `python` commands.
+
 The cache simulator requires several Python packages as noted in requirements.txt. The simplest way to prepare your runtime environment without breaking things is to create a virtual envronment before installing the needed packages. To do so execute the following command in the ECE585-llc directory (the name of the virtual environment can be changed to your liking):
 
 ```sh
