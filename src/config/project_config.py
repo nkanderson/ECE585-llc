@@ -77,7 +77,7 @@ class Config:
             "--file",
             type=str,
             help="Path to the trace file to process",
-            default=None,
+            default="data/trace.txt",
         )
         parser.add_argument(
             "--capacity",
