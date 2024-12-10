@@ -178,6 +178,11 @@ class TraceFileParser:
             warnings.warn(f"Invalid line format: {line}")
             return None
 
+        # Check that there aren't too many tokens in line
+        if len(parts) > 2:
+            warnings.warn(f"Invalid line format (too many tokens): {line}")
+            return None
+
         # Handle commands without an address
         if op in (TraceCommand.CLEAR_CACHE, TraceCommand.PRINT_CACHE):
             return op, None
